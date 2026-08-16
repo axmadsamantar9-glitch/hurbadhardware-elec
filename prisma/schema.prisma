@@ -1,4 +1,17 @@
-// Placeholder schema — U2 defines the full data model.
+// Hurbad Hardware — full data model (U2).
+//
+// Conventions:
+//   * Model and field names are camelCase/PascalCase for the Prisma Client;
+//     `@map` / `@@map` keep the underlying Postgres identifiers snake_case.
+//   * Money is always `Decimal` with an explicit precision/scale — never Float.
+//     USD amounts use Decimal(10,2); charge amounts allow Decimal(12,2) because
+//     KES totals are ~130x the USD figure. FX rates use Decimal(14,6).
+//   * `Product.searchVector` is a Postgres GENERATED tsvector column that Prisma
+//     cannot express. It is declared here as `Unsupported` so the client ignores
+//     it; the real column definition and its GIN index live in
+//     prisma/migrations/manual/001_search_vector.sql and must be folded into the
+//     first real migration.
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,4 +20,540 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  CUSTOMER
+  ADMIN
+
+  @@map("role")
+}
+
+enum Locale {
+  en
+  so
+
+  @@map("locale")
+}
+
+enum CountryCode {
+  SO
+  KE
+  ET
+
+  @@map("country_code")
+}
+
+enum CouponType {
+  PERCENT
+  FIXED
+
+  @@map("coupon_type")
+}
+
+enum OrderStatus {
+  PLACED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+
+  @@map("order_status")
+}
+
+enum Currency {
+  USD
+  KES
+
+  @@map("currency")
+}
+
+enum PaymentGateway {
+  WAAFIPAY
+  EDAHAB
+  PAYSTACK
+
+  @@map("payment_gateway")
+}
+
+enum PaymentMethod {
+  EVC_PLUS
+  EDAHAB
+  CARD
+  MPESA
+
+  @@map("payment_method")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  EXPIRED
+
+  @@map("payment_status")
+}
+
+enum FxBase {
+  USD
+
+  @@map("fx_base")
+}
+
+enum FxQuote {
+  KES
+
+  @@map("fx_quote")
+}
+
+// ---------------------------------------------------------------------------
+// Identity — application user plus the three models @auth/prisma-adapter
+// requires (Account, Session, VerificationToken).
+// ---------------------------------------------------------------------------
+
+model User {
+  id String @id @default(cuid())
+
+  // Optional because a customer may register with a phone number only, and
+  // because Auth.js `AdapterUser` tolerates a null email.
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  phone         String?   @unique
+  name          String?
+  passwordHash  String?   @map("password_hash")
+  role          Role      @default(CUSTOMER)
+  country       String?
+  locale        Locale    @default(en)
+  googleId      String?   @unique @map("google_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  accounts         Account[]
+  sessions         Session[]
+  addresses        Address[]
+  reviews          Review[]
+  carts            Cart[]
+  wishlists        Wishlist[]
+  orders           Order[]
+  whatsappSessions WhatsappSession[]
+  inventoryLogs    InventoryLog[]
+
+  @@index([role])
+  @@map("users")
+}
+
+/// Auth.js adapter model. The snake_case OAuth token fields are named exactly
+/// as `AdapterAccount` sends them — do not rename them to camelCase.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+/// Auth.js adapter model. Only used when the database session strategy is on.
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// Auth.js adapter model. Intentionally has no `id` column: the adapter strips
+/// one if present, and the composite unique satisfies Prisma's key requirement.
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Address {
+  id           String      @id @default(cuid())
+  userId       String      @map("user_id")
+  fullName     String      @map("full_name")
+  phone        String
+  addressLine1 String      @map("address_line1")
+  addressLine2 String?     @map("address_line2")
+  city         String
+  state        String?
+  country      CountryCode
+  isDefault    Boolean     @default(false) @map("is_default")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+// ---------------------------------------------------------------------------
+// Catalogue
+// ---------------------------------------------------------------------------
+
+model Category {
+  id        String  @id @default(cuid())
+  nameEn    String  @map("name_en")
+  nameSo    String  @map("name_so")
+  slug      String  @unique
+  parentId  String? @map("parent_id")
+  imageUrl  String? @map("image_url")
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
+
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryHierarchy")
+  products Product[]
+
+  @@index([parentId])
+  @@index([isActive])
+  @@map("categories")
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  nameEn        String   @map("name_en")
+  nameSo        String   @map("name_so")
+  slug          String   @unique
+  descriptionEn String?  @map("description_en")
+  descriptionSo String?  @map("description_so")
+  brand         String?
+  sku           String   @unique
+  basePriceUsd  Decimal  @map("base_price_usd") @db.Decimal(10, 2)
+  stockQuantity Int      @default(0) @map("stock_quantity")
+  categoryId    String   @map("category_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  isFeatured    Boolean  @default(false) @map("is_featured")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  /// Postgres `GENERATED ALWAYS AS (...) STORED` tsvector built from name_en,
+  /// name_so, description_en and brand. Managed by raw SQL, never written by
+  /// the client. See prisma/migrations/manual/001_search_vector.sql.
+  searchVector Unsupported("tsvector")? @map("search_vector")
+
+  category      Category         @relation(fields: [categoryId], references: [id])
+  images        ProductImage[]
+  specs         ProductSpec[]
+  variants      ProductVariant[]
+  reviews       Review[]
+  cartItems     CartItem[]
+  wishlists     Wishlist[]
+  orderItems    OrderItem[]
+  inventoryLogs InventoryLog[]
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([isFeatured])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String  @map("product_id")
+  url       String
+  altEn     String? @map("alt_en")
+  altSo     String? @map("alt_so")
+  position  Int     @default(0)
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Also the natural key the seed upserts on.
+  @@unique([productId, position])
+  @@index([productId])
+  @@map("product_images")
+}
+
+model ProductSpec {
+  id        String @id @default(cuid())
+  productId String @map("product_id")
+  keyEn     String @map("key_en")
+  keySo     String @map("key_so")
+  valueEn   String @map("value_en")
+  valueSo   String @map("value_so")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_specs")
+}
+
+model ProductVariant {
+  id            String  @id @default(cuid())
+  productId     String  @map("product_id")
+  name          String
+  sku           String  @unique
+  priceUsd      Decimal @map("price_usd") @db.Decimal(10, 2)
+  stockQuantity Int     @default(0) @map("stock_quantity")
+  attributes    Json?   @db.JsonB
+  isActive      Boolean @default(true) @map("is_active")
+
+  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  inventoryLogs InventoryLog[]
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+model Review {
+  id                 String   @id @default(cuid())
+  productId          String   @map("product_id")
+  userId             String   @map("user_id")
+  rating             Int      @db.SmallInt
+  title              String?
+  body               String?
+  isVerifiedPurchase Boolean  @default(false) @map("is_verified_purchase")
+  isApproved         Boolean  @default(false) @map("is_approved")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // One review per customer per product.
+  @@unique([productId, userId])
+  @@index([productId, isApproved])
+  @@map("reviews")
+}
+
+// ---------------------------------------------------------------------------
+// Cart and wishlist
+// ---------------------------------------------------------------------------
+
+model Cart {
+  id        String   @id @default(cuid())
+  /// Null for a guest cart, which is keyed by `sessionId` until sign-in.
+  userId    String?  @map("user_id")
+  sessionId String?  @map("session_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@index([userId])
+  @@index([sessionId])
+  @@map("carts")
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cartId    String  @map("cart_id")
+  productId String  @map("product_id")
+  variantId String? @map("variant_id")
+  quantity  Int     @default(1)
+
+  cart    Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([cartId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  productId String   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@map("wishlists")
+}
+
+// ---------------------------------------------------------------------------
+// Orders, payments and money
+// ---------------------------------------------------------------------------
+
+model Coupon {
+  id          String     @id @default(cuid())
+  code        String     @unique
+  type        CouponType
+  value       Decimal    @db.Decimal(10, 2)
+  minOrderUsd Decimal?   @map("min_order_usd") @db.Decimal(10, 2)
+  maxUses     Int?       @map("max_uses")
+  usedCount   Int        @default(0) @map("used_count")
+  expiresAt   DateTime?  @map("expires_at")
+  isActive    Boolean    @default(true) @map("is_active")
+
+  orders Order[]
+
+  @@map("coupons")
+}
+
+model Order {
+  id     String      @id @default(cuid())
+  userId String?     @map("user_id")
+  status OrderStatus @default(PLACED)
+
+  subtotalUsd Decimal @map("subtotal_usd") @db.Decimal(10, 2)
+  discountUsd Decimal @default(0) @map("discount_usd") @db.Decimal(10, 2)
+  taxUsd      Decimal @default(0) @map("tax_usd") @db.Decimal(10, 2)
+  totalUsd    Decimal @map("total_usd") @db.Decimal(10, 2)
+
+  /// Currency the customer is actually charged in, and the amount in that
+  /// currency. `fxRate`/`fxRateAt` pin the rate used at checkout so a later
+  /// rate move never changes a placed order.
+  chargeCurrency Currency  @map("charge_currency")
+  chargeAmount   Decimal   @map("charge_amount") @db.Decimal(12, 2)
+  fxRate         Decimal?  @map("fx_rate") @db.Decimal(14, 6)
+  fxRateAt       DateTime? @map("fx_rate_at")
+
+  shippingAddressId String?        @map("shipping_address_id")
+  couponId          String?        @map("coupon_id")
+  paymentMethod     PaymentMethod? @map("payment_method")
+  paymentStatus     PaymentStatus? @default(PENDING) @map("payment_status")
+  isWhatsappOrder   Boolean        @default(false) @map("is_whatsapp_order")
+  notes             String?
+  createdAt         DateTime       @default(now()) @map("created_at")
+
+  user             User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  shippingAddress  Address?          @relation(fields: [shippingAddressId], references: [id], onDelete: SetNull)
+  coupon           Coupon?           @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  items            OrderItem[]
+  payments         Payment[]
+  whatsappSessions WhatsappSession[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String  @map("order_id")
+  /// Nullable so deleting a product never destroys order history; the snapshot
+  /// columns keep the line item readable on their own.
+  productId String? @map("product_id")
+  variantId String? @map("variant_id")
+  quantity  Int
+
+  unitPriceUsd   Decimal @map("unit_price_usd") @db.Decimal(10, 2)
+  nameSnapshotEn String  @map("name_snapshot_en")
+  nameSnapshotSo String  @map("name_snapshot_so")
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Payment {
+  id      String         @id @default(cuid())
+  orderId String         @map("order_id")
+  gateway PaymentGateway
+  method  PaymentMethod
+
+  /// Our idempotency key sent to the gateway; unique per gateway.
+  gatewayReference     String  @map("gateway_reference")
+  gatewayTransactionId String? @map("gateway_transaction_id")
+
+  amountUsd      Decimal  @map("amount_usd") @db.Decimal(10, 2)
+  chargeAmount   Decimal  @map("charge_amount") @db.Decimal(12, 2)
+  chargeCurrency Currency @map("charge_currency")
+
+  status          PaymentStatus @default(PENDING)
+  callbackPayload Json?         @map("callback_payload") @db.JsonB
+  lastPolledAt    DateTime?     @map("last_polled_at")
+  pollAttempts    Int           @default(0) @map("poll_attempts")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([gateway, gatewayReference])
+  @@index([orderId])
+  @@index([status])
+  @@map("payments")
+}
+
+model FxRate {
+  id        String   @id @default(cuid())
+  base      FxBase   @default(USD)
+  quote     FxQuote  @default(KES)
+  rate      Decimal  @db.Decimal(14, 6)
+  spreadPct Decimal  @map("spread_pct") @db.Decimal(5, 3)
+  source    String
+  fetchedAt DateTime @default(now()) @map("fetched_at")
+
+  @@index([base, quote, fetchedAt])
+  @@map("fx_rates")
+}
+
+// ---------------------------------------------------------------------------
+// WhatsApp commerce and stock auditing
+// ---------------------------------------------------------------------------
+
+model WhatsappSession {
+  id            String   @id @default(cuid())
+  waPhoneId     String   @map("wa_phone_id")
+  fromPhone     String   @map("from_phone")
+  userId        String?  @map("user_id")
+  orderId       String?  @map("order_id")
+  state         String
+  context       Json?    @db.JsonB
+  lastMessageAt DateTime @default(now()) @map("last_message_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([fromPhone])
+  @@index([userId])
+  @@map("whatsapp_sessions")
+}
+
+model InventoryLog {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  variantId String?  @map("variant_id")
+  /// Signed change: negative on sale, positive on restock.
+  delta     Int
+  reason    String
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  user    User?           @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([createdAt])
+  @@map("inventory_logs")
 }
