@@ -1,0 +1,16 @@
+# Normalize line endings to LF in the repository regardless of contributor OS.
+# Without this, Windows checkouts commit CRLF and every file shows as fully
+# rewritten in diffs.
+* text=auto eol=lf
+
+# Binary assets must never be line-ending converted.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.avif binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
