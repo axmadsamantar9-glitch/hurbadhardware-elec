@@ -14,16 +14,16 @@ Build HurbadHardware — a mobile-first B2C electronics e-commerce platform for 
 
 | Milestone | Units | Status |
 |-----------|-------|--------|
-| **M1: Foundation & Platform** | U1–U4 | 🟦 NOT STARTED — current milestone |
-| M2: Product Catalog & Discovery | U5–U8, U20 partial | 🟦 blocked on M1 |
+| **M1: Foundation & Platform** | U1–U4, HUR-51 | ✅ COMPLETE |
+| **M2: Product Catalog & Discovery** | U5–U8, U20 partial | 🟦 current milestone (unblocked) |
 | M3: Shopping — Cart & Wishlist | U9–U10 | 🟦 blocked on M1, M2 |
 | M4: Commerce Engine — Pricing & Checkout | U22, U11 | 🟦 blocked on M1, M3 |
 | M5: Payments — Gateways & Reconciliation | U12, U23 | 🟦 blocked on M4 |
 | M6: Customer Lifecycle — Accounts, WhatsApp | U14–U16 | 🟦 blocked on M1, M5 |
 | M7: Admin Operations & Production Readiness | U17–U19, U21 partial | 🟦 blocked on M1–M6 |
 
-**Current milestone:** M1 (in progress — U1, U2, HUR-51 verified; U3, U4 remaining)
-**Current item:** U3: Authentication System (next unblocked item; dependencies met: U1 ✅, U2 ✅)
+**Current milestone:** M2 (Product Catalog & Discovery)
+**Current item:** U5: Product Data Layer (next unblocked item; dependencies met: U1 ✅, U2 ✅)
 
 ### ACTIVE DECISIONS
 
@@ -37,9 +37,12 @@ Build HurbadHardware — a mobile-first B2C electronics e-commerce platform for 
 
 ### LAST KNOWN-GOOD CHECKPOINT
 
-**2026-08-23: HUR-51 Verified** — All gates green (build, lint, typecheck, tests ≥80% coverage, dogfood, security review). Checkpoint at commit before U3 dispatch will be tagged `known-good-m1` once M1 completes all items or reaches integration checkpoint.
-
-Git state: branch `feat/sprint-1-foundation`, latest commits (2026-08-23) include HUR-51 work (correlation ID, logger, security headers, CI workflow, tests).
+**2026-08-23: M1 COMPLETE (known-good-m1)**
+- Commit: `d910deb` (chore(m1): finalize M1 foundation & platform milestone)
+- All 5 M1 units + HUR-51 verified ✅
+- Integration checkpoint green: build/lint/typecheck pass, locale routing works, auth flows work, protected routes enforced, i18n operational, observability baseline live
+- Tag: `known-good-m1`
+- Next: M2 Product Catalog & Discovery unblocked
 
 ### OPEN RISKS / ESCALATIONS
 
@@ -84,3 +87,25 @@ Git state: branch `feat/sprint-1-foundation`, latest commits (2026-08-23) includ
 **Verification (production-readiness-equivalent, done directly since no builder/gate agent was dispatched for this narrow DB-unblock task):** `migrate status` → up to date; `migrate deploy` → 0 pending, exit 0; seed → 8 categories, 40 products, 80 images, 2 coupons, admin user; full-text search query against `search_vector` returns matches; cascade delete (Product → ProductImage/ProductSpec) verified via a rolled-back transaction (no data lost); `build`/`lint`/`typecheck` all exit 0.
 
 **Learning for future items:** when a manual/reference-only SQL directory sits inside `prisma/migrations/`, verify empirically whether the current Prisma version actually ignores it before trusting an in-repo comment's claim — behavior changed and broke `migrate dev`. Also: `prisma migrate dev` can prompt interactively after applying pending migrations even when no real drift exists; prefer `migrate deploy` (non-interactive, deploy-only) once an initial migration already exists, and reserve `migrate dev --create-only` for generating new migration files.
+
+### 2026-08-23 — M1 Foundation & Platform Complete
+
+**Decision:** All 5 M1 units (U1–U4) + HUR-51 (CI/CD baseline) verified and integrated. M1 integration checkpoint passed (build/lint/typecheck green, locale routing functional, auth flows operational, protected routes enforced, i18n switching live, observability baseline active). Tagged `known-good-m1` commit d910deb. M2 Product Catalog & Discovery unblocked.
+
+**Summary of M1 Verification:**
+- U1 Project Scaffolding ✅ (2026-08-18) — scaffold, dependencies, tooling
+- U2 Database Schema ✅ (2026-08-22) — Prisma, migrations, seed data (8 categories, 40 products, 80 images)
+- HUR-51 CI/CD & Security Baseline ✅ (2026-08-23) — correlation ID, logger redaction, security headers, secure cookies, CI gates
+- U3 Authentication System ✅ (2026-08-23) — NextAuth v5, email/password + Google OAuth, protected routes, session management
+- U4 i18n Foundation ✅ (2026-08-23) — next-intl, locale routing (/en/, /so/), language switcher, EN + SO translations, secure cookie server action
+
+**Issues Resolved During Run:**
+1. HUR-51: Logger and security headers implemented, dogfood entrypoint created
+2. U3: Three CRITICAL security fixes applied during review (bcrypt cost consistency, OAuth dangerous linking, auth redirects)
+3. U4: Three CRITICAL security vulnerabilities fixed during review (open redirect validation, insecure cookie → server action, locale preservation in redirects); ONE CRITICAL blocker fixed in gate (missing NextIntlClientProvider context)
+
+**Learnings Promoted to Agent Charters:**
+- qa-test: Dogfood design principles, TypeScript patterns (AbortController for fetch timeout), test environment limitations
+- production-readiness-gate: TypeScript fetch patterns, ESLint 9+ migration, test mocking strategies
+
+**Next:** M2 Product Catalog & Discovery (U5–U8, U20 partial) — storefront agent owns these units. Dependencies met: U1, U2 ✅. No blockers.
