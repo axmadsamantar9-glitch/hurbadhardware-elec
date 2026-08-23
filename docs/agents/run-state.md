@@ -61,6 +61,13 @@ Build HurbadHardware — a mobile-first B2C electronics e-commerce platform for 
 3. **Business decisions pending (PRD §0.6 Pre-Build Readiness Gate):** merchant/payment account confirmation, shipping zones/rates, tax treatment, return/refund window, warranty duration, launch catalog, supplier data — none of these are confirmed. product-planning agent must surface these as blockers when framing affected features (checkout, payments, warranty, shipping).
 4. **No CI/CD pipeline exists yet** (no `.github/workflows/`). This is part of U21, scheduled for M7; until then, there is no automated gate on PRs.
 
+### IMPORTANT TITLE ATTRIBUTION RULES
+
+**Modules 01-07:** Lesson titles are EXACT instructor-provided titles. Do NOT rename these.
+**Modules 08-12:** Lesson titles are PROJECT-DERIVED from PRD and module purpose (awaiting instructor titles). Clearly marked as [PROJECT-DERIVED] in FEATURES.md.
+**Linear Issues:** HUR-xxx IDs are preserved unchanged. Lesson titles may differ from old Linear issue titles; reconciliation maps both to the instructor's curriculum.
+**Completed Work:** All verified work (M1, U5, HUR-51) is mapped to the correct instructor lesson and preserved unchanged. No rebuild required.
+
 ---
 
 ## TIER 2 — DECISION LOG (append-only, read on demand)

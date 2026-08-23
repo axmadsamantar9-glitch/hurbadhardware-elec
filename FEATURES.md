@@ -128,18 +128,19 @@
 
 ## MODULE 08: SECURITY, TESTING, DEPLOYMENT & OPERATIONS (HUB-62-69)
 
-**Derived from PRD §9 (Security), §10 (Testing), §4.4 (Infrastructure), Phases 13-15**
+**⚠️ LESSON TITLES ARE PROJECT-DERIVED (Awaiting Instructor-Provided Titles)**  
+**Derived from:** PRD §9 (Security), §10 (Testing), §4.4 (Infrastructure), Phases 13-15
 
-| HUB | Lesson | Status | PRD | Unit | Notes |
+| HUB | Lesson (PROJECT-DERIVED) | Status | PRD | Unit | Notes |
 |-----|--------|--------|-----|------|-------|
-| HUB-62 | Application Security Hardening | 🟦 | §9.1 | HUR-98 | Input validation, XSS/CSRF/injection prevention, IDOR fixes, rate limiting |
-| HUB-63 | Payment & Webhook Security | 🟦 | §9.4 | HUR-99 | Webhook signature verification, payment idempotency, HMAC validation |
-| HUB-64 | Unit & Integration Test Suites | 🟦 | §10.1 | HUR-104 | Comprehensive coverage for auth, payments, inventory, orders (≥80%) |
-| HUB-65 | End-to-End (E2E) Testing & Automation | 🟦 | §10.1 | HUR-105, HUR-106 | Browser automation, user flow testing, critical path verification |
-| HUB-66 | Performance Optimization & Monitoring | 🟦 | §9.8, R30 | HUR-96 | Core Web Vitals, Lighthouse scoring, caching strategy, CDN tuning |
-| HUB-67 | CI/CD Pipeline & Deployment Automation | ✅ | §4.4 | HUR-51, HUR-102, HUR-103 | GitHub Actions, Vercel auto-deploy, build/lint/test gates, blue-green |
-| HUB-68 | Observability, Logging & Alerting | ✅ | §9.1, HUR-51 | HUR-51 | Structured JSON logging, correlation ID tracking, secret redaction, dashboards |
-| HUB-69 | Backup, Recovery & Disaster Readiness | 🟦 | §4.4, §9 | - | Database backups, restore testing, failover procedures, RTO/RPO |
+| HUB-62 | [PROJECT-DERIVED] Security Hardening | 🟦 | §9.1 | HUR-98 | Input validation, XSS/CSRF/injection prevention, IDOR fixes, rate limiting |
+| HUB-63 | [PROJECT-DERIVED] Payment & Webhook Security | 🟦 | §9.4 | HUR-99 | Webhook signature verification, payment idempotency, HMAC validation |
+| HUB-64 | [PROJECT-DERIVED] Unit & Integration Test Suites | 🟦 | §10.1 | HUR-104 | Comprehensive coverage for auth, payments, inventory, orders (≥80%) |
+| HUB-65 | [PROJECT-DERIVED] End-to-End Testing & Automation | 🟦 | §10.1 | HUR-105, HUR-106 | Browser automation, user flow testing, critical path verification |
+| HUB-66 | [PROJECT-DERIVED] Performance Optimization & Monitoring | 🟦 | §9.8, R30 | HUR-96 | Core Web Vitals, Lighthouse scoring, caching strategy, CDN tuning |
+| HUB-67 | [PROJECT-DERIVED] CI/CD Pipeline & Deployment | ✅ | §4.4 | HUR-51, HUR-102, HUR-103 | GitHub Actions, Vercel auto-deploy, build/lint/test gates, blue-green |
+| HUB-68 | [PROJECT-DERIVED] Observability, Logging & Alerting | ✅ | §9.1, HUR-51 | HUR-51 | Structured JSON logging, correlation ID tracking, secret redaction, dashboards |
+| HUB-69 | [PROJECT-DERIVED] Backup, Recovery & Disaster Readiness | 🟦 | §4.4, §9 | - | Database backups, restore testing, failover procedures, RTO/RPO |
 
 ---
 
@@ -158,40 +159,43 @@
 
 ## MODULE 10: MOBILE SHOPPING & DISCOVERY (HUB-74-77)
 
-**Reuses Module 04-05 data layer for mobile UI**
+**⚠️ LESSON TITLES ARE PROJECT-DERIVED (Awaiting Instructor-Provided Titles)**  
+**Reuses:** Module 04-05 data layer for mobile UI
 
-| HUB | Lesson | Status | PRD | Unit | Notes |
+| HUB | Lesson (PROJECT-DERIVED) | Status | PRD | Unit | Notes |
 |-----|--------|--------|-----|------|-------|
-| HUB-74 | Mobile Catalog & Product Discovery | 🟦 | R1-R3 | HUR-145 | Mobile catalog pages, infinite scroll or pagination, category drill-down |
-| HUB-75 | Mobile Search & Filtering | 🟦 | R2-R4 | HUR-145 | Mobile search bar (top sticky), filter drawer (bottom sheet), mobile sorting |
-| HUB-76 | Mobile Product Detail Pages | 🟦 | R6-R7 | HUR-145 | Mobile image swipe gallery, specification accordion, mobile variant selector |
-| HUB-77 | Mobile Reviews & Ratings | 🟦 | R7 | HUR-148 | Star rating input, review text entry, photo upload from camera/gallery |
+| HUB-74 | [PROJECT-DERIVED] Mobile Catalog & Product Discovery | 🟦 | R1-R3 | HUR-145 | Mobile catalog pages, infinite scroll or pagination, category drill-down |
+| HUB-75 | [PROJECT-DERIVED] Mobile Search & Filtering | 🟦 | R2-R4 | HUR-145 | Mobile search bar (top sticky), filter drawer (bottom sheet), mobile sorting |
+| HUB-76 | [PROJECT-DERIVED] Mobile Product Detail Pages | 🟦 | R6-R7 | HUR-145 | Mobile image swipe gallery, specification accordion, mobile variant selector |
+| HUB-77 | [PROJECT-DERIVED] Mobile Reviews & Ratings | 🟦 | R7 | HUR-148 | Star rating input, review text entry, photo upload from camera/gallery |
 
 ---
 
 ## MODULE 11: MOBILE CHECKOUT, ORDERS & ACCOUNT (HUB-78-81)
 
-**Reuses Module 05 commerce for mobile implementation**
+**⚠️ LESSON TITLES ARE PROJECT-DERIVED (Awaiting Instructor-Provided Titles)**  
+**Reuses:** Module 05 commerce for mobile implementation
 
-| HUB | Lesson | Status | PRD | Unit | Notes |
+| HUB | Lesson (PROJECT-DERIVED) | Status | PRD | Unit | Notes |
 |-----|--------|--------|-----|------|-------|
-| HUB-78 | Mobile Checkout Flow | 🟦 | R11, R30 | HUR-149 | Single-column mobile address entry, mobile-optimized order review, one-hand scrolling |
-| HUB-79 | Mobile Payment Method Selection | 🟦 | R12-R16 | HUR-150 | Mobile payment selector, FX conversion display, network-resilient submission |
-| HUB-80 | Mobile Order Tracking & Notifications | 🟦 | R20, R23 | HUR-151 | Mobile order timeline, WhatsApp/email notification history, push notifications |
-| HUB-81 | Mobile Customer Account & Profile | 🟦 | R18-R20 | HUR-152 | Mobile account tab, order history list, saved addresses, profile settings |
+| HUB-78 | [PROJECT-DERIVED] Mobile Checkout Flow | 🟦 | R11, R30 | HUR-149 | Single-column mobile address entry, mobile-optimized order review, one-hand scrolling |
+| HUB-79 | [PROJECT-DERIVED] Mobile Payment Method Selection | 🟦 | R12-R16 | HUR-150 | Mobile payment selector, FX conversion display, network-resilient submission |
+| HUB-80 | [PROJECT-DERIVED] Mobile Order Tracking & Notifications | 🟦 | R20, R23 | HUR-151 | Mobile order timeline, WhatsApp/email notification history, push notifications |
+| HUB-81 | [PROJECT-DERIVED] Mobile Customer Account & Profile | 🟦 | R18-R20 | HUR-152 | Mobile account tab, order history list, saved addresses, profile settings |
 
 ---
 
 ## MODULE 12: PUBLISHING, ROADMAP & WRAP-UP (HUB-82-85)
 
-**Derived from PRD §0.6 (Pre-Build Gate), Phases 14-15 (Launch & Post-Launch)**
+**⚠️ LESSON TITLES ARE PROJECT-DERIVED (Awaiting Instructor-Provided Titles)**  
+**Derived from:** PRD §0.6 (Pre-Build Gate), Phases 14-15 (Launch & Post-Launch)
 
-| HUB | Lesson | Status | PRD | Unit | Notes |
+| HUB | Lesson (PROJECT-DERIVED) | Status | PRD | Unit | Notes |
 |-----|--------|--------|-----|------|-------|
-| HUB-82 | Launch Readiness Gate & Verification | 🟦 | §0.6, Phase 14 | - | Pre-launch checklist (business decisions, data, security), final verification |
-| HUB-83 | Production Deployment & Cutover | 🟦 | §4.4, Phase 14 | HUR-103 | DNS cutover, CDN cache warmup, monitoring activation, smoke tests |
-| HUB-84 | Post-Launch Monitoring & Operations | 🟦 | §9.8, Phase 15 | - | SLA tracking, incident response playbook, performance baselines |
-| HUB-85 | Future Roadmap & v2 Planning | 🟦 | §1.2, §1.3, Scope | HUR-109-112 | Ethiopia market (Telebirr), additional languages, marketplace, native apps |
+| HUB-82 | [PROJECT-DERIVED] Launch Readiness Gate & Verification | 🟦 | §0.6, Phase 14 | - | Pre-launch checklist (business decisions, data, security), final verification |
+| HUB-83 | [PROJECT-DERIVED] Production Deployment & Cutover | 🟦 | §4.4, Phase 14 | HUR-103 | DNS cutover, CDN cache warmup, monitoring activation, smoke tests |
+| HUB-84 | [PROJECT-DERIVED] Post-Launch Monitoring & Operations | 🟦 | §9.8, Phase 15 | - | SLA tracking, incident response playbook, performance baselines |
+| HUB-85 | [PROJECT-DERIVED] Future Roadmap & v2 Planning | 🟦 | §1.2, §1.3, Scope | HUR-109-112 | Ethiopia market (Telebirr), additional languages, marketplace, native apps |
 
 ---
 
