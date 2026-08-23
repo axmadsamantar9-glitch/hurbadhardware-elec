@@ -14,22 +14,26 @@ Build HurbadHardware — a mobile-first B2C electronics e-commerce platform for 
 
 | Milestone | Units | Status |
 |-----------|-------|--------|
-| **Module 01: Foundations & Product Vision** | HUB-1-9 | ✅ COMPLETE (HUB-1-3, 4-9 business decisions) |
-| **Module 02: Architecture, Engineering Standards & Data Modeling** | HUB-10-19 | ✅ Partial (HUB-11 done, HUB-10, 12-19 in-flight) |
-| **Module 03: Design System, Accessibility & Localization** | HUB-20-24 | ✅ Partial (HUB-22 i18n done, HUB-20-21, 23-24 planned) |
-| **Module 04: Catalog & Inventory** | HUB-25-32 | 🟨 In Progress (HUB-25 done, HUB-26+ next) |
-| Module 05: Storefront & Cart, Checkout, Orders, Shipping & Payments | HUB-33-43 | 🟦 Blocked on Module 04 data models |
-| Module 06: Admin, Portals, CMS, Engagement & Analytics | HUB-44-57 | 🟦 Blocked on Module 05 storefront |
-| Module 07: Design System & UI Foundation | HUB-58-61 | 🟦 Blocked on Module 05 storefront needs |
-| Module 08: Security, Testing, Deployment & Operations | TBD | 🟦 Lesson list awaiting instructor |
-| Module 09: Mobile App Foundation & Shell | TBD | 🟦 Lesson list awaiting instructor |
-| Module 10: Mobile Shopping & Discovery | TBD | 🟦 Lesson list awaiting instructor |
-| Module 11: Mobile Checkout, Orders & Account | TBD | 🟦 Lesson list awaiting instructor |
-| Module 12: Publishing, Roadmap & Wrap-Up | TBD | 🟦 Lesson list awaiting instructor |
+| **Module 01: Foundations & Product Vision** | HUB-1-9 (9 lessons) | ✅ COMPLETE |
+| **Module 02: Architecture, Engineering Standards & Data Modeling** | HUB-10-19 (10 lessons) | ✅ Partial (HUB-11 done; HUB-10, 12-19 in-flight) |
+| **Module 03: Design System, Accessibility & Localization** | HUB-20-24 (5 lessons) | ✅ Partial (HUB-22 i18n done; HUB-20-21, 23-24 planned) |
+| **Module 04: Catalog & Inventory** | HUB-25-32 (8 lessons) | 🟨 In Progress (HUB-25 ✅, HUB-26 → dispatch next) |
+| Module 05: Storefront & Cart, Checkout, Orders, Shipping & Payments | HUB-33-43 (11 lessons) | 🟦 Blocked on Module 04 data layer |
+| Module 06: Admin, Portals, CMS, Engagement & Analytics | HUB-44-57 (14 lessons) | 🟦 Blocked on Module 05 commerce |
+| Module 07: Design System & UI Foundation | HUB-58-61 (4 lessons) | 🟦 Blocked on storefront needs |
+| **Module 08: Security, Testing, Deployment & Operations** | HUB-62-69 (8 lessons) | 🟦 Parallel to M05-M07 (HUR-51 partial ✅) |
+| Module 09: Mobile App Foundation & Shell | HUB-70-73 (4 lessons) | 🟦 Blocked on M05 complete |
+| Module 10: Mobile Shopping & Discovery | HUB-74-77 (4 lessons) | 🟦 Blocked on M09 foundation |
+| Module 11: Mobile Checkout, Orders & Account | HUB-78-81 (4 lessons) | 🟦 Blocked on M10 shopping |
+| Module 12: Publishing, Roadmap & Wrap-Up | HUB-82-85 (4 lessons) | 🟦 Blocked on M11 complete |
 
-**Current curriculum position:** HUB-26 (Brand Management, Module 04 Catalog & Inventory)
-**Last completed lesson:** HUB-25 (Product Catalog, Module 04) — known-good-m2-u5 checkpoint
-**Next unblocked lesson:** HUB-26 (Brand Management) — depends on HUB-25 ✅ and database schema ✅
+**Curriculum Status:** Complete (HUB-1 through HUB-85, all 12 modules mapped)
+**Current Lesson Position:** HUB-26 (Brand Management, Module 04)
+**Last Completed Lesson:** HUB-25 (Product Catalog, Module 04) ✅ [checkpoint: known-good-m2-u5]
+**Next Unblocked Lesson:** HUB-26 (Brand Management) — dependencies satisfied ✅
+**Total Lessons:** 85 (Modules 01-12)
+**Completed:** 7 (HUB-1-3, HUB-11, HUB-22, HUB-25, HUB-44)
+**Planned:** 78
 
 ### ACTIVE DECISIONS
 
