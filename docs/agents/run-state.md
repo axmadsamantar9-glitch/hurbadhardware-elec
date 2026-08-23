@@ -37,7 +37,7 @@ Build HurbadHardware — a mobile-first B2C electronics e-commerce platform for 
 
 ### LAST KNOWN-GOOD CHECKPOINT
 
-**2026-08-23: M1 COMPLETE (known-good-m1)**
+**2026-08-23: M1 COMPLETE, U5 VERIFIED (known-good-m1-u5)**
 - Commit: `d910deb` (chore(m1): finalize M1 foundation & platform milestone)
 - All 5 M1 units + HUR-51 verified ✅
 - Integration checkpoint green: build/lint/typecheck pass, locale routing works, auth flows work, protected routes enforced, i18n operational, observability baseline live
