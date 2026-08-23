@@ -14,16 +14,22 @@ Build HurbadHardware — a mobile-first B2C electronics e-commerce platform for 
 
 | Milestone | Units | Status |
 |-----------|-------|--------|
-| **M1: Foundation & Platform** | U1–U4, HUR-51 | ✅ COMPLETE |
-| **M2: Product Catalog & Discovery** | U5–U8, U20 partial | 🟦 current milestone (unblocked) |
-| M3: Shopping — Cart & Wishlist | U9–U10 | 🟦 blocked on M1, M2 |
-| M4: Commerce Engine — Pricing & Checkout | U22, U11 | 🟦 blocked on M1, M3 |
-| M5: Payments — Gateways & Reconciliation | U12, U23 | 🟦 blocked on M4 |
-| M6: Customer Lifecycle — Accounts, WhatsApp | U14–U16 | 🟦 blocked on M1, M5 |
-| M7: Admin Operations & Production Readiness | U17–U19, U21 partial | 🟦 blocked on M1–M6 |
+| **Module 01: Foundations & Product Vision** | HUB-1-9 | ✅ COMPLETE (HUB-1-3, 4-9 business decisions) |
+| **Module 02: Architecture, Engineering Standards & Data Modeling** | HUB-10-19 | ✅ Partial (HUB-11 done, HUB-10, 12-19 in-flight) |
+| **Module 03: Design System, Accessibility & Localization** | HUB-20-24 | ✅ Partial (HUB-22 i18n done, HUB-20-21, 23-24 planned) |
+| **Module 04: Catalog & Inventory** | HUB-25-32 | 🟨 In Progress (HUB-25 done, HUB-26+ next) |
+| Module 05: Storefront & Cart, Checkout, Orders, Shipping & Payments | HUB-33-43 | 🟦 Blocked on Module 04 data models |
+| Module 06: Admin, Portals, CMS, Engagement & Analytics | HUB-44-57 | 🟦 Blocked on Module 05 storefront |
+| Module 07: Design System & UI Foundation | HUB-58-61 | 🟦 Blocked on Module 05 storefront needs |
+| Module 08: Security, Testing, Deployment & Operations | TBD | 🟦 Lesson list awaiting instructor |
+| Module 09: Mobile App Foundation & Shell | TBD | 🟦 Lesson list awaiting instructor |
+| Module 10: Mobile Shopping & Discovery | TBD | 🟦 Lesson list awaiting instructor |
+| Module 11: Mobile Checkout, Orders & Account | TBD | 🟦 Lesson list awaiting instructor |
+| Module 12: Publishing, Roadmap & Wrap-Up | TBD | 🟦 Lesson list awaiting instructor |
 
-**Current milestone:** M2 (Product Catalog & Discovery)
-**Current item:** U6: Product Catalog & Filtering (next unblocked item; dependencies met: U1 ✅, U2 ✅, U5 ✅)
+**Current curriculum position:** HUB-26 (Brand Management, Module 04 Catalog & Inventory)
+**Last completed lesson:** HUB-25 (Product Catalog, Module 04) — known-good-m2-u5 checkpoint
+**Next unblocked lesson:** HUB-26 (Brand Management) — depends on HUB-25 ✅ and database schema ✅
 
 ### ACTIVE DECISIONS
 
