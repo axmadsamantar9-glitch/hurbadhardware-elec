@@ -23,7 +23,7 @@ Build HurbadHardware — a mobile-first B2C electronics e-commerce platform for 
 | M7: Admin Operations & Production Readiness | U17–U19, U21 partial | 🟦 blocked on M1–M6 |
 
 **Current milestone:** M2 (Product Catalog & Discovery)
-**Current item:** U5: Product Data Layer (next unblocked item; dependencies met: U1 ✅, U2 ✅)
+**Current item:** U6: Product Catalog & Filtering (next unblocked item; dependencies met: U1 ✅, U2 ✅, U5 ✅)
 
 ### ACTIVE DECISIONS
 
