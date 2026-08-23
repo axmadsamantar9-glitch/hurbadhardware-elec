@@ -634,7 +634,7 @@ async function seedCategoriesAndProducts(): Promise<void> {
 }
 
 async function seedAdminUser(): Promise<void> {
-  const passwordHash = hashSync(ADMIN_PASSWORD, 10)
+  const passwordHash = hashSync(ADMIN_PASSWORD, 12)
 
   await prisma.user.upsert({
     where: { email: ADMIN_EMAIL },
@@ -647,6 +647,40 @@ async function seedAdminUser(): Promise<void> {
       passwordHash,
       role: Role.ADMIN,
       country: 'SO',
+      locale: Locale.en,
+      emailVerified: new Date(),
+    },
+  })
+}
+
+async function seedTestUsers(): Promise<void> {
+  // Test customer user (email: test@example.com, password: TestPassword123!)
+  const testCustomerPassword = hashSync('TestPassword123!', 12)
+  await prisma.user.upsert({
+    where: { email: 'test@example.com' },
+    update: { role: Role.CUSTOMER, name: 'Test Customer' },
+    create: {
+      email: 'test@example.com',
+      name: 'Test Customer',
+      passwordHash: testCustomerPassword,
+      role: Role.CUSTOMER,
+      country: 'SO',
+      locale: Locale.en,
+      emailVerified: new Date(),
+    },
+  })
+
+  // Test customer for Kenya (email: test-ke@example.com, password: TestPassword123!)
+  const testKenyaPassword = hashSync('TestPassword123!', 12)
+  await prisma.user.upsert({
+    where: { email: 'test-ke@example.com' },
+    update: { role: Role.CUSTOMER, name: 'Test Kenya' },
+    create: {
+      email: 'test-ke@example.com',
+      name: 'Test Kenya',
+      passwordHash: testKenyaPassword,
+      role: Role.CUSTOMER,
+      country: 'KE',
       locale: Locale.en,
       emailVerified: new Date(),
     },
@@ -690,6 +724,9 @@ async function main(): Promise<void> {
 
   console.log('Seeding admin user…')
   await seedAdminUser()
+
+  console.log('Seeding test users…')
+  await seedTestUsers()
 
   console.log('Seeding coupons…')
   await seedCoupons()

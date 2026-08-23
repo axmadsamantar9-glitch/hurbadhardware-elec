@@ -11,6 +11,7 @@
 export type {
   Account,
   Address,
+  AuditLog,
   Cart,
   CartItem,
   Category,

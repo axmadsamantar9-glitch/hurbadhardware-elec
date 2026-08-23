@@ -1,0 +1,80 @@
+{
+  "home": {
+    "welcome": "Welcome to HurbadHardware",
+    "browse": "Browse Products",
+    "getStarted": "Get Started",
+    "description": "Electronics retailer for East Africa — smartphones, laptops, networking, CCTV and more."
+  },
+  "auth": {
+    "signin": "Sign In",
+    "register": "Register",
+    "signout": "Sign Out",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "name": "Full Name",
+    "createAccount": "Create Account",
+    "alreadyHaveAccount": "Already have an account?",
+    "noAccount": "Don't have an account?",
+    "signInWithEmail": "Sign in with your email",
+    "registerWithEmail": "Create a new account",
+    "signingIn": "Signing in...",
+    "creating": "Creating account...",
+    "invalidCredentials": "Invalid email or password",
+    "accountCreated": "Account created successfully!",
+    "passwordMismatch": "Passwords do not match",
+    "passwordWeak": "Password must be at least 8 characters with uppercase, lowercase, number, and special character",
+    "emailInvalid": "Please enter a valid email",
+    "emailExists": "Email already in use"
+  },
+  "account": {
+    "profile": "Profile",
+    "orders": "Orders",
+    "addresses": "Addresses",
+    "myAccount": "My Account",
+    "manageSettings": "Manage your account settings and preferences",
+    "accountInformation": "Account Information",
+    "email": "Email",
+    "name": "Name",
+    "role": "Role",
+    "language": "Language",
+    "administrator": "Administrator",
+    "customer": "Customer",
+    "adminAccess": "Admin Access",
+    "adminPrivileges": "You have administrator privileges.",
+    "goToDashboard": "Go to Admin Dashboard",
+    "signOut": "Sign Out",
+    "yourAccount": "Your Account"
+  },
+  "admin": {
+    "dashboard": "Admin Dashboard",
+    "products": "Manage Products",
+    "orders": "Manage Orders",
+    "analytics": "Manage Analytics",
+    "manageProductCatalog": "Manage product catalog, inventory, and pricing",
+    "viewManageOrders": "View and manage customer orders and fulfillment",
+    "viewSalesMetrics": "View sales metrics, trends, and performance data",
+    "goToProducts": "Go to Products",
+    "goToOrders": "Go to Orders",
+    "goToAnalytics": "Go to Analytics",
+    "comingSoon": "Coming Soon",
+    "fullAdminFunctionality": "Full admin functionality (product management, order tracking, analytics, etc.) will be available in future updates.",
+    "welcome": "Welcome"
+  },
+  "nav": {
+    "language": "Language",
+    "en": "English",
+    "so": "Somali",
+    "changeLanguage": "Change language",
+    "home": "Home",
+    "account": "Account",
+    "signIn": "Sign In",
+    "signUp": "Sign Up"
+  },
+  "errors": {
+    "notFound": "Page not found",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Access denied",
+    "serverError": "Server error"
+  }
+}

@@ -141,6 +141,7 @@ model User {
   orders           Order[]
   whatsappSessions WhatsappSession[]
   inventoryLogs    InventoryLog[]
+  auditLogs        AuditLog[]
 
   @@index([role])
   @@map("users")
@@ -556,4 +557,40 @@ model InventoryLog {
   @@index([productId])
   @@index([createdAt])
   @@map("inventory_logs")
+}
+
+/// Append-only audit trail for sensitive actions (admin catalog/price changes,
+/// order status changes, refunds, warranty overrides, inventory adjustments,
+/// credential/role changes). Written exclusively through the transactional
+/// helper in src/lib/audit.ts — there is deliberately no update/delete path in
+/// application code, and prisma/migrations/manual/002_audit_log_append_only.sql
+/// enforces the same rule at the database level with a rejecting trigger.
+///
+/// `action` is a free string rather than an enum, namespaced `<entity>.<verb>`
+/// (e.g. `order.status_change`, `warranty.override`) — an enum would force
+/// every unrelated future feature's migration to also touch this table.
+model AuditLog {
+  id     String  @id @default(cuid())
+  /// Null only for actions with no human actor; every action currently listed
+  /// in this issue's policy is admin-triggered, so this is nullable for
+  /// forward compatibility, not because a real case needs it yet.
+  actorId String? @map("actor_id")
+  action  String
+
+  entityType String @map("entity_type")
+  entityId   String @map("entity_id")
+
+  before Json? @db.JsonB
+  after  Json? @db.JsonB
+  reason String?
+
+  correlationId String?  @map("correlation_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

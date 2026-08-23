@@ -1,0 +1,80 @@
+{
+  "home": {
+    "welcome": "Mabarka HurbadHardware",
+    "browse": "Iska Duub Alaab",
+    "getStarted": "Ku Biir",
+    "description": "Guddoomiyaha elektarooniga ee Afrika Bari — smartphones, laptops, netwerkada, CCTV iyo walaac."
+  },
+  "auth": {
+    "signin": "Soo Gal",
+    "register": "Diiwaangeli",
+    "signout": "Ka Bax",
+    "email": "Email",
+    "password": "Erayga Sirta ah",
+    "confirmPassword": "Dhaaf Erayga Sirta ah",
+    "name": "Magaca Buubuuq",
+    "createAccount": "Abuur Akaauntiga",
+    "alreadyHaveAccount": "Miyaad lehtaa akaaunt?",
+    "noAccount": "Miyaad lehtaa akaaunt?",
+    "signInWithEmail": "Soo gal isticmaalka emailkaaga",
+    "registerWithEmail": "Abuur akaaunt cusub",
+    "signingIn": "Soo galaw...",
+    "creating": "Abuurista akaauntiga...",
+    "invalidCredentials": "Email ama eray sirta ah oo khaldan",
+    "accountCreated": "Akaauntiga waxa lagu abuuray guul!",
+    "passwordMismatch": "Ereyga sirta ah ee kugu jira ma isku midnayn",
+    "passwordWeak": "Ereyga sirta ah waa inuu ahaadaa ugu yaraan 8 xarfiyadood oo leh iska duub, hoosaad iyo lambar",
+    "emailInvalid": "Fadlan geli email sax ah",
+    "emailExists": "Email-kan waxa uu isticmaal ku hayaa dhacdooyin kale"
+  },
+  "account": {
+    "profile": "Profiles",
+    "orders": "Isbitaallada",
+    "addresses": "Cinwaannada",
+    "myAccount": "Akaauntiga",
+    "manageSettings": "Maamuus calamada akaauntiga iyo doodooshada",
+    "accountInformation": "Macluumaadka Akaauntiga",
+    "email": "Email",
+    "name": "Magaca",
+    "role": "Doorka",
+    "language": "Luqada",
+    "administrator": "Maamulaha",
+    "customer": "Soohdinta",
+    "adminAccess": "Gacan-gelida Maamulaha",
+    "adminPrivileges": "Waxaad lehtaa xuquuqda maamulaha.",
+    "goToDashboard": "Tag Dashboard-ka Maamulaha",
+    "signOut": "Ka Bax",
+    "yourAccount": "Akaauntiga"
+  },
+  "admin": {
+    "dashboard": "Dashboard-ka Maamulaha",
+    "products": "Maamuus Alaab",
+    "orders": "Maamuus Isbitaallada",
+    "analytics": "Maamuus Falanqeynaadka",
+    "manageProductCatalog": "Maamuus kataloogka alaab, invantariyaha, iyo qiimetka",
+    "viewManageOrders": "Eeg iyo maamuus isbitaallada macmiilka",
+    "viewSalesMetrics": "Eeg qaybta iibka, gacmadaha, iyo xogga adeegsiga",
+    "goToProducts": "Tag Alaabka",
+    "goToOrders": "Tag Isbitaallada",
+    "goToAnalytics": "Tag Falanqeynaadka",
+    "comingSoon": "Marka Hore Imaad",
+    "fullAdminFunctionality": "Waxtaraddii buubuuq ee maamulaha (maamuusida alaab, raacida isbitaallada, falanqeynaadka, iwm.) ayaa lagu heli doonaa koofuraha dambe.",
+    "welcome": "Mabarka"
+  },
+  "nav": {
+    "language": "Luqada",
+    "en": "Ingiriiska",
+    "so": "Soomaali",
+    "changeLanguage": "Beddel luqada",
+    "home": "Hoyga",
+    "account": "Akaauntiga",
+    "signIn": "Soo Gal",
+    "signUp": "Diiwaangeli"
+  },
+  "errors": {
+    "notFound": "Boggu lama helin",
+    "unauthorized": "Lumayan",
+    "forbidden": "Gacangelid la diidiyey",
+    "serverError": "Khalad server"
+  }
+}
