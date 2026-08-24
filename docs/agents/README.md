@@ -10,34 +10,34 @@ This is **bounded autonomy with machine-checked exits** — not infinite unatten
 
 ## The Roster
 
-| Agent | File | Role | Owns (PRD Units) | Tools |
-|---|---|---|---|---|
-| `product-planning` | `.claude/agents/product-planning.md` | Ledger owner, feature framer | FEATURES.md, acceptance criteria | Read-only |
-| `architect` | `.claude/agents/architect.md` | Schema & adapter design authority | `prisma/schema.prisma`, adapter interfaces | Read+Edit+Bash |
-| `auth-platform` | `.claude/agents/auth-platform.md` | Foundation, auth, i18n | U1, U2, U3, U4 | Read+Edit+Bash |
-| `storefront` | `.claude/agents/storefront.md` | Catalog, search, SEO | U5, U6, U7, U8, U20 | Read+Edit+Bash |
-| `commerce-engine` | `.claude/agents/commerce-engine.md` | Cart, checkout, pricing, FX | U9, U10, U11, U22 | Read+Edit+Bash |
-| `payment-gateways` | `.claude/agents/payment-gateways.md` | Payment adapters, reconciliation | U12, U23 | Read+Edit+Bash |
-| `customer-experience` | `.claude/agents/customer-experience.md` | Accounts, notifications, WhatsApp | U14, U15, U16 | Read+Edit+Bash |
-| `admin-ops` | `.claude/agents/admin-ops.md` | Product/inventory/order admin, analytics | U17, U18, U19 | Read+Edit+Bash |
-| `performance-deployment` | `.claude/agents/performance-deployment.md` | Performance, PWA, CI/CD | U21 | Read+Edit+Bash |
-| `security-reviewer` | `.claude/agents/security-reviewer.md` | Diff security review | Cross-cutting | Read-only |
-| `qa-test` | `.claude/agents/qa-test.md` | Test suite, dogfood entrypoint | Cross-cutting | Read+Edit+Bash |
-| `production-readiness-gate` | `.claude/agents/production-readiness-gate.md` | Final verification gate | Cross-cutting | Read-only+Bash |
+| Agent                       | File                                          | Role                                     | Owns (PRD Units)                           | Tools          |
+| --------------------------- | --------------------------------------------- | ---------------------------------------- | ------------------------------------------ | -------------- |
+| `product-planning`          | `.claude/agents/product-planning.md`          | Ledger owner, feature framer             | FEATURES.md, acceptance criteria           | Read-only      |
+| `architect`                 | `.claude/agents/architect.md`                 | Schema & adapter design authority        | `prisma/schema.prisma`, adapter interfaces | Read+Edit+Bash |
+| `auth-platform`             | `.claude/agents/auth-platform.md`             | Foundation, auth, i18n                   | U1, U2, U3, U4                             | Read+Edit+Bash |
+| `storefront`                | `.claude/agents/storefront.md`                | Catalog, search, SEO                     | U5, U6, U7, U8, U20                        | Read+Edit+Bash |
+| `commerce-engine`           | `.claude/agents/commerce-engine.md`           | Cart, checkout, pricing, FX              | U9, U10, U11, U22                          | Read+Edit+Bash |
+| `payment-gateways`          | `.claude/agents/payment-gateways.md`          | Payment adapters, reconciliation         | U12, U23                                   | Read+Edit+Bash |
+| `customer-experience`       | `.claude/agents/customer-experience.md`       | Accounts, notifications, WhatsApp        | U14, U15, U16                              | Read+Edit+Bash |
+| `admin-ops`                 | `.claude/agents/admin-ops.md`                 | Product/inventory/order admin, analytics | U17, U18, U19                              | Read+Edit+Bash |
+| `performance-deployment`    | `.claude/agents/performance-deployment.md`    | Performance, PWA, CI/CD                  | U21                                        | Read+Edit+Bash |
+| `security-reviewer`         | `.claude/agents/security-reviewer.md`         | Diff security review                     | Cross-cutting                              | Read-only      |
+| `qa-test`                   | `.claude/agents/qa-test.md`                   | Test suite, dogfood entrypoint           | Cross-cutting                              | Read+Edit+Bash |
+| `production-readiness-gate` | `.claude/agents/production-readiness-gate.md` | Final verification gate                  | Cross-cutting                              | Read-only+Bash |
 
 **Least-privilege tools:** Reviewers (`product-planning`, `security-reviewer`) and the gate get read-only or read+bash access — they never edit code. Builders get `Read`, `Edit`, `Bash`, `Glob`, `Grep`.
 
 ## The Milestone Plan
 
-| Milestone | Units | Goal | Integration Checkpoint |
-|---|---|---|---|
-| **M1** | U1–U4 | Foundation, auth, i18n | Build/typecheck/lint green; auth flow works; `/so/` renders in Somali |
-| **M2** | U5–U8, U20p | Catalog & discovery | Search works; JSON-LD present; sitemap valid; Rich Results Test passes |
-| **M3** | U9–U10 | Cart & wishlist | Guest cart persists; login merges cart; coupon validates |
-| **M4** | U22, U11 | Pricing & checkout | FX cached; order created atomically; no client price manipulation |
-| **M5** | U12, U23 | Payments & reconciliation | All 4 gateways initiate + confirm via status query; dropped callback recovers via cron |
-| **M6** | U14–U16 | Accounts & WhatsApp | Dashboard works; WhatsApp bot creates orders; notifications sent |
-| **M7** | U17–U19, U21p | Admin & launch readiness | Admin CRUD works; analytics correct; Lighthouse ≥85; **dogfood exits 0**; security green |
+| Milestone | Units         | Goal                      | Integration Checkpoint                                                                   |
+| --------- | ------------- | ------------------------- | ---------------------------------------------------------------------------------------- |
+| **M1**    | U1–U4         | Foundation, auth, i18n    | Build/typecheck/lint green; auth flow works; `/so/` renders in Somali                    |
+| **M2**    | U5–U8, U20p   | Catalog & discovery       | Search works; JSON-LD present; sitemap valid; Rich Results Test passes                   |
+| **M3**    | U9–U10        | Cart & wishlist           | Guest cart persists; login merges cart; coupon validates                                 |
+| **M4**    | U22, U11      | Pricing & checkout        | FX cached; order created atomically; no client price manipulation                        |
+| **M5**    | U12, U23      | Payments & reconciliation | All 4 gateways initiate + confirm via status query; dropped callback recovers via cron   |
+| **M6**    | U14–U16       | Accounts & WhatsApp       | Dashboard works; WhatsApp bot creates orders; notifications sent                         |
+| **M7**    | U17–U19, U21p | Admin & launch readiness  | Admin CRUD works; analytics correct; Lighthouse ≥85; **dogfood exits 0**; security green |
 
 Each milestone ends with an **Integration Checkpoint**: re-ground against the North Star, run the full-system dogfood, and either tag `known-good-m<N>` (on green) or roll back to `known-good-m<N-1>` (on red).
 
@@ -53,10 +53,12 @@ Full mechanics: `.claude/commands/hurbad-team.md`.
 ## The Self-Learning Loop
 
 Each agent has a learnings file at `docs/agents/learnings/<name>.md`:
+
 - **Before** a task: read it, apply every relevant entry.
 - **After** a task: append durable lessons only (format: Symptom / Cause / Rule), never task-specific trivia, never secrets.
 
 Each ledger item's retro (run by the orchestrator):
+
 1. Confirms learnings files were updated.
 2. **Promotes** any learning that recurred ≥2 times or prevented an iron-rule violation into the agent's charter itself, in a capped "Promoted Learnings" section (~1 page, curated on promotion — merge duplicates, drop stale entries).
 3. **Audits the greens** — once per milestone, spot-checks one item that passed the gate to verify its tests are meaningful and its claims were grounded, not just confidently asserted.

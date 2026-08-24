@@ -1,10 +1,10 @@
-import { randomUUID } from 'node:crypto'
-import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
-import createMiddleware from 'next-intl/middleware'
-import { locales, defaultLocale } from '@/i18n'
-import { validateCallbackUrl } from '@/lib/validate-callback-url'
-import type { NextRequest } from 'next/server'
+import { randomUUID } from "node:crypto";
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import createMiddleware from "next-intl/middleware";
+import { locales, defaultLocale } from "@/i18n";
+import { validateCallbackUrl } from "@/lib/validate-callback-url";
+import type { NextRequest } from "next/server";
 
 // Every request gets a correlation ID: reuse one an upstream proxy (e.g.
 // Cloudflare) already set, otherwise mint one here. It's attached to both the
@@ -14,82 +14,92 @@ import type { NextRequest } from 'next/server'
 //
 // Auth middleware (U3) protects /account and /admin routes.
 // i18n middleware (U4) handles locale routing and detection.
-const CORRELATION_HEADER = 'x-request-id'
+const CORRELATION_HEADER = "x-request-id";
 // Only trust an inbound value shaped like a UUID; anything else (arbitrary
 // length/content a client could send) gets replaced with a freshly minted
 // one, so unvalidated client input never flows into logs, responses, or the
 // audit_logs.correlation_id column.
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Create the next-intl middleware
 const intlMiddleware = createMiddleware({
   locales,
   defaultLocale,
-  localePrefix: 'always', // Always require locale prefix
-})
+  localePrefix: "always", // Always require locale prefix
+});
 
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname } = request.nextUrl;
 
-  // Apply next-intl middleware first (handles locale routing)
-  const intlResponse = intlMiddleware(request)
+  // Skip i18n middleware for API routes — they don't need locale routing
+  const isApiRoute = pathname.startsWith("/api/");
+  let locale: string | undefined;
 
-  // If next-intl handled a redirect (e.g., invalid locale), use that response
-  if (intlResponse?.status !== 200) {
-    return intlResponse
+  if (!isApiRoute) {
+    // Apply next-intl middleware only to non-API routes (handles locale routing)
+    const intlResponse = intlMiddleware(request);
+
+    // If next-intl handled a redirect (e.g., invalid locale), use that response
+    if (intlResponse?.status !== 200) {
+      return intlResponse;
+    }
+
+    // Extract locale from pathname for auth checks
+    const localePattern = new RegExp(`^/(${locales.join("|")})(/|$)`);
+    const match = pathname.match(localePattern);
+    locale = match?.[1] as string | undefined;
   }
-
-  // Extract locale from pathname for auth checks
-  const localePattern = new RegExp(`^/(${locales.join('|')})(/|$)`)
-  const match = pathname.match(localePattern)
-  const locale = match?.[1] as string | undefined
 
   // Public routes that don't require authentication
   const publicRoutes = [
-    '/api/auth',
-    '/api/health',
-    '/auth/signin',
-    '/auth/register',
-    '/',
-    '/products',
-  ]
+    "/api/auth",
+    "/api/health",
+    "/api/products",
+    "/auth/signin",
+    "/auth/register",
+    "/",
+    "/products",
+  ];
 
   // Check if the path is public (accounting for locale prefix)
   const isPublic = publicRoutes.some(
-    (route) => pathname === route || pathname.startsWith(route + '/') ||
-    pathname === `/${locale}${route}` || pathname.startsWith(`/${locale}${route}/`)
-  )
+    (route) =>
+      pathname === route ||
+      pathname.startsWith(route + "/") ||
+      pathname === `/${locale}${route}` ||
+      pathname.startsWith(`/${locale}${route}/`)
+  );
 
   // Protected routes: require authentication
-  if ((pathname.includes('/account') || pathname.includes('/admin')) && !isPublic) {
-    const session = await auth()
+  if ((pathname.includes("/account") || pathname.includes("/admin")) && !isPublic) {
+    const session = await auth();
 
     if (!session) {
-      const url = new URL(`/${locale || defaultLocale}/auth/signin`, request.url)
+      const url = new URL(`/${locale || defaultLocale}/auth/signin`, request.url);
       // Validate callbackUrl to prevent open redirects
-      url.searchParams.set('callbackUrl', validateCallbackUrl(pathname))
-      return NextResponse.redirect(url)
+      url.searchParams.set("callbackUrl", validateCallbackUrl(pathname));
+      return NextResponse.redirect(url);
     }
 
     // Admin routes: check role
-    if (pathname.includes('/admin') && session.user.role !== 'ADMIN') {
-      return NextResponse.redirect(new URL(`/${locale || defaultLocale}`, request.url))
+    if (pathname.includes("/admin") && session.user.role !== "ADMIN") {
+      return NextResponse.redirect(new URL(`/${locale || defaultLocale}`, request.url));
     }
   }
 
   // Continue with correlation ID setup
-  const inbound = request.headers.get(CORRELATION_HEADER)
-  const correlationId = inbound && UUID_PATTERN.test(inbound) ? inbound : randomUUID()
+  const inbound = request.headers.get(CORRELATION_HEADER);
+  const correlationId = inbound && UUID_PATTERN.test(inbound) ? inbound : randomUUID();
 
-  const requestHeaders = new Headers(request.headers)
-  requestHeaders.set(CORRELATION_HEADER, correlationId)
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(CORRELATION_HEADER, correlationId);
 
   const response = NextResponse.next({
     request: { headers: requestHeaders },
-  })
-  response.headers.set(CORRELATION_HEADER, correlationId)
+  });
+  response.headers.set(CORRELATION_HEADER, correlationId);
 
-  return response
+  return response;
 }
 
 export const config = {
@@ -99,6 +109,6 @@ export const config = {
     // - /api (API routes don't need locale prefix, but they're matched for correlation ID)
     // - /_next/static and /_next/image (static assets)
     // - /favicon.ico (favicon)
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
-}
+};

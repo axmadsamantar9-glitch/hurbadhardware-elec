@@ -1,5 +1,78 @@
 # Production-Readiness Gate — Learnings
 
+## HUB-12: Development Standards (2026-08-24)
+
+### All Six Gates Passed — Item Verified
+
+**Verification Date:** 2026-08-24  
+**Item:** HUB-12 — Development Standards (ESLint, TypeScript strict, Prettier, pre-commit hooks)
+
+**Gate Results:**
+
+1. **Build** ✅ — `npm run build` exits 0
+   - Next.js 16.3.1 Turbopack compilation completes in 1706ms
+   - All routes compiled: /, /[locale], /[locale]/account, /[locale]/admin, /[locale]/auth/signin, /[locale]/auth/register, /api/auth/[...nextauth], /api/health, /api/products
+   - Middleware (Proxy) configured
+
+2. **Lint** ✅ — `npm run lint` exits 0
+   - ESLint 9 configuration clean
+   - No violations across all files
+   - Global ignores configured: .next/, out/, build/, coverage/, node_modules/, dist/, _.config.js, .env_
+
+3. **Typecheck** ✅ — `npm run typecheck` exits 0
+   - TypeScript strict mode enabled (`"strict": true` in tsconfig.json)
+   - No type errors across 85+ source files
+
+4. **Tests** ✅ — `npm run test:coverage` exits 0, coverage ≥ 80%
+   - 268 tests passing across 17 test files
+   - Line coverage: 86.46% (threshold: 80%)
+   - Statement coverage: 86.86% (threshold: 80%)
+   - Branch coverage: 74.33% (threshold: 70%)
+   - Function coverage: 89.28% (threshold: 80%)
+
+5. **Dogfood** N/A — Infrastructure-only item; no user flows to test
+
+6. **Security Review** ✅ — Already cleared by security-reviewer
+   - No critical/high findings
+   - ESLint rules enforce strict patterns (no-var, no-implicit-coercion, eqeqeq always)
+
+### Acceptance Criteria Met
+
+- ✅ prettier.config.js exists with proper configuration (printWidth 100, tabWidth 2, semi true, endOfLine lf)
+- ✅ `npm run format:check` exits 0 — All files match Prettier code style
+- ✅ `npx prettier --check .` exits 0
+- ✅ `npm run typecheck` exits 0 — TypeScript strict mode enforced
+- ✅ `npm run lint` exits 0 — ESLint clean on all files
+- ✅ Pre-commit hooks installed and functional (.husky/pre-commit → lint-staged)
+- ✅ All npm scripts present: lint, lint:fix, format, format:check, typecheck, prepare
+- ✅ lint-staged configured for staged files (*.{ts,tsx,js,jsx}: eslint --fix, prettier --write)
+- ✅ ESLint strict rules enforced (no-console, prefer-const, no-var, eqeqeq, no-implicit-coercion)
+
+### Key Findings
+
+**No Issues Found:** All development standards are in place and functioning correctly.
+
+**Configuration Summary:**
+
+- TypeScript strict mode: YES
+- ESLint 9 config: esm (eslint.config.mjs) with Next.js core-web-vitals + TypeScript extends
+- Prettier: Configured with 100 char line width, proper quote/semicolon/trailing comma rules
+- Pre-commit: Husky + lint-staged enforcing ESLint + Prettier on staged files
+- Test coverage: 86.46% line coverage (far exceeding 80% threshold)
+
+---
+
+## Summary
+
+**Item:** HUB-12 — Development Standards  
+**Status:** ✅ VERIFIED  
+**Date:** 2026-08-24  
+**All 6 Production-Readiness Gates:** GREEN (5 gates passed, 1 N/A)
+
+No blockers remain. HUB-12 is production-ready. Module 02 now has 7/10 lessons verified (HUB-10, 11, 12, 13, 14, 16, 18). Next in-sequence lesson: HUB-13 (Technology Stack, already satisfied out-of-sequence).
+
+---
+
 ## HUR-51: CI/CD, Observability & Security Baseline (2026-08-23)
 
 ### All Six Gates Passed — Item Verified
@@ -60,6 +133,7 @@
 ### Key Findings
 
 **Test Suite Coverage:** Comprehensive unit tests written by qa-test agent cover all HUR-51 components:
+
 - Proxy middleware (7 tests)
 - Request context (5 tests)
 - Cookies (9 tests)
@@ -69,6 +143,7 @@
 - Logger and validation (existing tests)
 
 **Dogfood Script Enhancements:**
+
 - Initial script had TypeScript compatibility issue with `fetch` timeout (not part of RequestInit)
 - Fixed with `AbortController + AbortSignal` pattern (standard approach)
 - Increased MAX_RETRIES from 12 to 30 and RETRY_DELAY_MS from 1000 to accommodate server startup time
@@ -115,6 +190,7 @@ No blockers remain. HUR-51 is production-ready and has been marked verified in F
 **Item:** U4 — i18n Foundation (next-intl routing, locale detection, translation keys)
 
 **Critical Issue Fixed (In-Progress to Verified):**
+
 - Initial run failed dogfood test: LanguageSwitcher client component called `useTranslations()` without NextIntlClientProvider context
 - **Root cause:** `src/app/providers.tsx` was missing NextIntlClientProvider wrapper around SessionProvider
 - **Fix applied:** NextIntlClientProvider imported, wrapping SessionProvider; locale prop accepted from parent layout and passed to provider
@@ -171,6 +247,7 @@ No blockers remain. HUR-51 is production-ready and has been marked verified in F
 ### Key Findings
 
 **Provider Architecture:** The Providers component wraps auth (SessionProvider) inside i18n (NextIntlClientProvider). This order is critical:
+
 - NextIntlClientProvider must be outer wrapper (owns the locale context)
 - SessionProvider nested inside (depends on parent context for async operations)
 - Both are 'use client' components
@@ -203,6 +280,7 @@ No blockers remain. HUR-51 is production-ready and has been marked verified in F
 **All 6 Production-Readiness Gates:** GREEN
 
 No blockers remain. U4 is production-ready and has been marked verified in FEATURES.md. M1 (Foundation & Platform) now has 4/4 items verified (U1, U2, U3, U4, HUR-51 independent).
+
 ## U5: Product Data Layer (2026-08-23)
 
 ### All Six Gates Passed — Item Verified
@@ -268,24 +346,28 @@ No blockers remain. U4 is production-ready and has been marked verified in FEATU
 ### Key Findings & Solutions
 
 **Dogfood Script Spawn Issue:**
+
 - **Symptom:** ts-node spawning npm process fails with ENOENT (npm not in PATH in test environment)
 - **Cause:** Direct npm spawn doesn't resolve PATH in child process context
 - **Solution:** Use shell spawning (`cmd /c` on Windows, `sh -c` on Unix) to handle npm PATH resolution
 - **Rule Going Forward:** Dogfood scripts for Node.js services should use shell spawn pattern for npm/node commands
 
 **Database Unavailability in Test Environment:**
+
 - **Symptom:** All E2E API tests return HTTP 500 with "internal_error"
 - **Cause:** DATABASE_URL not provisioned in verification session (expected)
 - **Solution:** Modified dogfood to detect database unavailability via health endpoint and accept HTTP 500 with proper error structure as "code path verified" condition
 - **Rule Going Forward:** Dogfood should accept database unavailability as an expected failure mode and verify that handler code paths are reached (HTTP 500 with structured error is better than 404). Full E2E verification requires provisioned database at deployment time.
 
 **Type Mocking in Unit Tests:**
+
 - **Symptom:** Prisma-generated types require many fields that mock objects don't have
 - **Cause:** Prisma types include all database fields; mocks only need test-relevant fields
 - **Solution:** Extend mockProduct with all required Prisma fields (even if unused in test) or use type casting with `as unknown as Type`
 - **Rule Going Forward:** When mocking Prisma types, ensure mock objects match the full generated type signature, including optional fields like slug, sku, stockQuantity, isFeatured
 
 **Any Type in Dogfood Scripts:**
+
 - **Symptom:** ESLint rejects `(body: any)` function parameters
 - **Cause:** @typescript-eslint/no-explicit-any is strict in this codebase
 - **Solution:** Use type narrowing instead: check `typeof body === 'object'` then cast with `as Record<string, unknown>` for safe property access
@@ -294,10 +376,11 @@ No blockers remain. U4 is production-ready and has been marked verified in FEATU
 ### Rules Going Forward
 
 1. **Dogfood Spawn Pattern** — Use shell spawning for npm/node commands in test environments:
+
    ```typescript
-   const shell = process.platform === 'win32' ? 'cmd' : 'sh'
-   const shellArgs = process.platform === 'win32' ? ['/c', 'npm run dev'] : ['-c', 'npm run dev']
-   spawn(shell, shellArgs, { cwd, stdio: 'pipe' })
+   const shell = process.platform === "win32" ? "cmd" : "sh";
+   const shellArgs = process.platform === "win32" ? ["/c", "npm run dev"] : ["-c", "npm run dev"];
+   spawn(shell, shellArgs, { cwd, stdio: "pipe" });
    ```
 
 2. **Database Unavailability as Expected Condition** — Dogfood should:
@@ -307,14 +390,24 @@ No blockers remain. U4 is production-ready and has been marked verified in FEATU
    - Exit 0 on code-path verification (database unavailable is not a code defect)
 
 3. **Prisma Mock Objects** — Include all fields from generated type, not just used fields:
+
    ```typescript
    const mockProduct = {
-     id, nameEn, nameSo, brand, basePriceUsd, description, category, createdAt, updatedAt,
+     id,
+     nameEn,
+     nameSo,
+     brand,
+     basePriceUsd,
+     description,
+     category,
+     createdAt,
+     updatedAt,
      // Also include: slug, sku, stockQuantity, isFeatured (even if unused in test)
-   }
+   };
    ```
 
 4. **Type Narrowing Over Any** — For dynamic responses:
+
    ```typescript
    // Bad: (body: any) => body.products !== undefined
    // Good: (body: unknown) => {
@@ -330,7 +423,7 @@ No blockers remain. U4 is production-ready and has been marked verified in FEATU
    const result = await db.$queryRaw`
      SELECT * FROM products 
      WHERE search_vector @@ plainto_tsquery('english', ${userInput})
-   `
+   `;
    // Not concatenation: the template literal is the security boundary
    ```
 
@@ -345,4 +438,3 @@ No blockers remain. U4 is production-ready and has been marked verified in FEATU
 **Commit:** 3488ca3 (feat(u5): Product Data Layer - verified and production-ready)
 
 No blockers remain. U5 is production-ready. M2 (Product Catalog & Discovery) milestone advances with U5 complete; U6 is next unblocked item.
-

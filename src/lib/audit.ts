@@ -1,29 +1,32 @@
-import type { Prisma } from '@prisma/client'
-import { logger } from '@/lib/logger'
+import type { Prisma } from "@prisma/client";
+import { logger } from "@/lib/logger";
+import { redactPII } from "@/lib/redact";
 
 // Naming convention every caller follows: `<entity>.<verb>`, e.g.
 // `product.update`, `order.status_change`, `payment.refund`,
 // `warranty.override`, `inventory.adjust`, `user.role_change`.
+// For payment records, preserve gateway transaction ID (non-PII, needed for
+// reconciliation) but mask customer PII (name, email, phone) per AC18.
 
 interface AuditEntryBase {
-  actorId: string | null
-  action: string
-  entityType: string
-  entityId: string
-  before?: unknown
-  after?: unknown
-  correlationId?: string
+  actorId: string | null;
+  action: string;
+  entityType: string;
+  entityId: string;
+  before?: unknown;
+  after?: unknown;
+  correlationId?: string;
 }
 
 interface AuditEntry extends AuditEntryBase {
-  reason?: string | null
+  reason?: string | null;
 }
 
 interface OverrideAuditEntry extends AuditEntryBase {
   /// Required, not optional — PRD §6.9: "Overrides require a reason, actor
   /// and audit record." A caller cannot construct this call without both.
-  actorId: string
-  reason: string
+  actorId: string;
+  reason: string;
 }
 
 async function insertAuditRow(
@@ -36,26 +39,24 @@ async function insertAuditRow(
       action: entry.action,
       entityType: entry.entityType,
       entityId: entry.entityId,
-      ...(entry.before !== undefined
-        ? { before: entry.before as Prisma.InputJsonValue }
-        : {}),
+      ...(entry.before !== undefined ? { before: entry.before as Prisma.InputJsonValue } : {}),
       ...(entry.after !== undefined ? { after: entry.after as Prisma.InputJsonValue } : {}),
       reason: entry.reason ?? null,
       correlationId: entry.correlationId ?? null,
     },
-  })
+  });
 
   // Same correlation ID as the DB row, so a request is traceable across both
   // the durable audit trail and the transient structured-log stream. Reuses
   // [012]'s logger, which already redacts secret-shaped fields/values — it
   // does not redact PII, which audit before/after snapshots deliberately keep.
-  logger.info('audit.write', {
+  logger.info("audit.write", {
     correlationId: entry.correlationId,
     actorId: entry.actorId,
     action: entry.action,
     entityType: entry.entityType,
     entityId: entry.entityId,
-  })
+  });
 }
 
 /**
@@ -74,7 +75,7 @@ export async function writeAuditLog(
   tx: Prisma.TransactionClient,
   entry: AuditEntry
 ): Promise<void> {
-  await insertAuditRow(tx, entry)
+  await insertAuditRow(tx, entry);
 }
 
 /**
@@ -86,5 +87,43 @@ export async function writeOverrideAuditLog(
   tx: Prisma.TransactionClient,
   entry: OverrideAuditEntry
 ): Promise<void> {
-  await insertAuditRow(tx, entry)
+  await insertAuditRow(tx, entry);
+}
+
+/**
+ * Records a payment audit entry with special handling for PII and gateway txId.
+ *
+ * Payment records are sensitive but require an audit trail for reconciliation.
+ * This function:
+ * - Preserves gateway transaction ID (non-PII, needed for reconciliation)
+ * - Redacts customer PII (name, email, phone) from snapshots
+ * - Allows payment status and amount (non-sensitive, needed for auditing)
+ *
+ * Caller provides before/after snapshots; this function redacts PII fields.
+ */
+export async function writePaymentAuditLog(
+  tx: Prisma.TransactionClient,
+  entry: AuditEntry & {
+    // Allow caller to pass payment-specific context
+    gatewayTxId?: string;
+  }
+): Promise<void> {
+  // Redact PII from before/after snapshots, but preserve non-PII fields
+  const before = entry.before ? redactPII(entry.before) : undefined;
+  const after = entry.after ? redactPII(entry.after) : undefined;
+
+  await insertAuditRow(tx, {
+    ...entry,
+    before,
+    after,
+  });
+
+  // Log the payment audit event (context is already redacted by logger.info)
+  logger.info("audit.payment", {
+    correlationId: entry.correlationId,
+    actorId: entry.actorId,
+    action: entry.action,
+    entityType: entry.entityType,
+    entityId: entry.entityId,
+  });
 }

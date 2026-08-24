@@ -1,65 +1,65 @@
-'use client'
+"use client";
 
-import { useState, useTransition } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useTranslations } from 'next-intl'
-import { signIn } from 'next-auth/react'
-import Link from 'next/link'
-import { validateCallbackUrl } from '@/lib/validate-callback-url'
+import { useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { signIn } from "next-auth/react";
+import Link from "next/link";
+import { validateCallbackUrl } from "@/lib/validate-callback-url";
 
 export function SignInForm() {
-  const t = useTranslations()
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const callbackUrl = validateCallbackUrl(searchParams.get('callbackUrl'))
+  const t = useTranslations();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = validateCallbackUrl(searchParams.get("callbackUrl"));
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [isPending, startTransition] = useTransition()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isPending, startTransition] = useTransition();
 
   const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+    e.preventDefault();
+    setError("");
 
     startTransition(async () => {
       try {
-        const result = await signIn('credentials', {
+        const result = await signIn("credentials", {
           email,
           password,
-          action: 'signin',
+          action: "signin",
           redirect: false,
-        })
+        });
 
         if (result?.error) {
-          if (result.error.includes('Invalid email or password')) {
-            setError(t('auth.invalidCredentials'))
-          } else if (result.error.includes('Email already')) {
-            setError(t('auth.emailExists'))
+          if (result.error.includes("Invalid email or password")) {
+            setError(t("auth.invalidCredentials"));
+          } else if (result.error.includes("Email already")) {
+            setError(t("auth.emailExists"));
           } else {
-            setError(result.error || 'An error occurred')
+            setError(result.error || "An error occurred");
           }
         } else if (result?.ok) {
-          router.push(callbackUrl)
-          router.refresh()
+          router.push(callbackUrl);
+          router.refresh();
         }
       } catch {
-        setError('An unexpected error occurred')
+        setError("An unexpected error occurred");
       }
-    })
-  }
+    });
+  };
 
   const handleGoogleSignIn = async () => {
     startTransition(async () => {
-      await signIn('google', { callbackUrl })
-    })
-  }
+      await signIn("google", { callbackUrl });
+    });
+  };
 
   return (
     <div className="w-full max-w-md space-y-8">
       <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-bold tracking-tight">{t('auth.signin')}</h1>
-        <p className="text-zinc-600">{t('auth.signInWithEmail')}</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t("auth.signin")}</h1>
+        <p className="text-zinc-600">{t("auth.signInWithEmail")}</p>
       </div>
 
       {error && (
@@ -71,7 +71,7 @@ export function SignInForm() {
       <form onSubmit={handleSignIn} className="space-y-4">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-zinc-900">
-            {t('auth.email')}
+            {t("auth.email")}
           </label>
           <input
             id="email"
@@ -88,7 +88,7 @@ export function SignInForm() {
 
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-zinc-900">
-            {t('auth.password')}
+            {t("auth.password")}
           </label>
           <input
             id="password"
@@ -108,7 +108,7 @@ export function SignInForm() {
           disabled={isPending}
           className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
         >
-          {isPending ? t('auth.signingIn') : t('auth.signin')}
+          {isPending ? t("auth.signingIn") : t("auth.signin")}
         </button>
       </form>
 
@@ -130,11 +130,11 @@ export function SignInForm() {
       </button>
 
       <p className="text-center text-sm text-zinc-600">
-        {t('auth.noAccount')}{' '}
+        {t("auth.noAccount")}{" "}
         <Link href="./register" className="font-medium text-blue-600 hover:text-blue-700">
-          {t('auth.register')}
+          {t("auth.register")}
         </Link>
       </p>
     </div>
-  )
+  );
 }

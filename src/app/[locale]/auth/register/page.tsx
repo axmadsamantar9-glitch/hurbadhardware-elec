@@ -1,10 +1,10 @@
-import { Suspense } from 'react'
-import { RegisterForm } from './register-form'
-import type { Metadata } from 'next'
+import { Suspense } from "react";
+import { RegisterForm } from "./register-form";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: 'Register',
-}
+  title: "Register",
+};
 
 function RegisterSkeleton() {
   return (
@@ -20,7 +20,7 @@ function RegisterSkeleton() {
         <div className="h-10 bg-zinc-200 rounded"></div>
       </div>
     </div>
-  )
+  );
 }
 
 export default function RegisterPage() {
@@ -30,5 +30,5 @@ export default function RegisterPage() {
         <RegisterForm />
       </Suspense>
     </div>
-  )
+  );
 }

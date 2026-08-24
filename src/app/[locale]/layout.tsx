@@ -1,44 +1,44 @@
-import type { Metadata } from 'next'
-import type { ReactNode } from 'react'
-import { Inter } from 'next/font/google'
-import { Providers } from '../providers'
-import { LanguageSwitcher } from '@/components/language-switcher'
-import '../globals.css'
-import { locales, defaultLocale, type Locale } from '@/i18n'
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import { Inter } from "next/font/google";
+import { Providers } from "../providers";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import "../globals.css";
+import { locales, defaultLocale, type Locale } from "@/i18n";
 
 const inter = Inter({
-  variable: '--font-inter',
-  subsets: ['latin'],
-  display: 'swap',
-})
+  variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: {
-    default: 'HurbadHardware',
-    template: '%s | HurbadHardware',
+    default: "HurbadHardware",
+    template: "%s | HurbadHardware",
   },
   description:
-    'Electronics retailer for East Africa — smartphones, laptops, networking, CCTV and more.',
-}
+    "Electronics retailer for East Africa — smartphones, laptops, networking, CCTV and more.",
+};
 
 // For now, mark as dynamic to avoid prerendering issues with next-intl context
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export default async function LocaleLayout({
   children,
   params,
 }: {
-  children: ReactNode
-  params: Promise<{ locale: string }>
+  children: ReactNode;
+  params: Promise<{ locale: string }>;
 }) {
-  const { locale: rawLocale } = await params
-  const locale = (locales.includes(rawLocale as Locale) ? rawLocale : defaultLocale) as Locale
+  const { locale: rawLocale } = await params;
+  const locale = (locales.includes(rawLocale as Locale) ? rawLocale : defaultLocale) as Locale;
 
   // Map locale to HTML lang attribute
   const langMap: Record<Locale, string> = {
-    en: 'en',
-    so: 'so',
-  }
+    en: "en",
+    so: "so",
+  };
 
   return (
     <html lang={langMap[locale]} className={`${inter.variable} h-full antialiased`}>
@@ -54,5 +54,5 @@ export default async function LocaleLayout({
         </Providers>
       </body>
     </html>
-  )
+  );
 }

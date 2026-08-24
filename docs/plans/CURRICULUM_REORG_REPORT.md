@@ -29,20 +29,20 @@ None. The original audit found zero exact duplicates across the 108-issue backlo
 
 ## 4. How Modules 01–12 Are Now Structured
 
-| # | Title | Status of lessons |
-|---|---|---|
-| 01 | Foundation (Course Setup, PRD & Team Formation) | 🟢 Instructor-confirmed, 9 lessons + 8 business-decision-register issues kept as a labeled non-instructor sub-group |
-| 02 | Architecture (System Design, Standards & Data Modeling) | 🟢 Instructor-confirmed, 10 lessons |
-| 03 | Design System (UI Standards, Accessibility & i18n) | 🟢 Instructor-confirmed, 5 lessons |
-| 04 | Catalog & Inventory | 🟢 Instructor-confirmed, 8 lessons |
-| 05 | Storefront (Commerce, Checkout, Orders, Payments) | 🟢 Instructor-confirmed, 11 lessons |
-| 06 | Admin, Portal, CMS & Analytics | 🟢 Instructor-confirmed, 14 lessons |
-| 07 | Design System (Component Library, Brand Identity & Platform UI) | 🟢 Instructor-confirmed, 4 lessons |
-| 08 | Security, Testing & Deployment | 🟡 Title confirmed, 4 lessons PROJECT-PLANNED (Security Hardening & Review, Automated Test Suites, Deployment & CI/CD, Documentation) |
-| 09 | Mobile App Foundation | 🟡 Title confirmed, 4 lessons PROJECT-PLANNED |
-| 10 | Mobile Shopping & Discovery | 🟡 Title confirmed, 4 lessons PROJECT-PLANNED |
-| 11 | Mobile Checkout, Orders & Payments | 🟡 Title confirmed, 4 lessons PROJECT-PLANNED |
-| 12 | Publishing, Roadmap & Launch | 🟡 Title confirmed, absorbed 5 real launch-readiness issues from old Module 9 |
+| #   | Title                                                           | Status of lessons                                                                                                                     |
+| --- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 01  | Foundation (Course Setup, PRD & Team Formation)                 | 🟢 Instructor-confirmed, 9 lessons + 8 business-decision-register issues kept as a labeled non-instructor sub-group                   |
+| 02  | Architecture (System Design, Standards & Data Modeling)         | 🟢 Instructor-confirmed, 10 lessons                                                                                                   |
+| 03  | Design System (UI Standards, Accessibility & i18n)              | 🟢 Instructor-confirmed, 5 lessons                                                                                                    |
+| 04  | Catalog & Inventory                                             | 🟢 Instructor-confirmed, 8 lessons                                                                                                    |
+| 05  | Storefront (Commerce, Checkout, Orders, Payments)               | 🟢 Instructor-confirmed, 11 lessons                                                                                                   |
+| 06  | Admin, Portal, CMS & Analytics                                  | 🟢 Instructor-confirmed, 14 lessons                                                                                                   |
+| 07  | Design System (Component Library, Brand Identity & Platform UI) | 🟢 Instructor-confirmed, 4 lessons                                                                                                    |
+| 08  | Security, Testing & Deployment                                  | 🟡 Title confirmed, 4 lessons PROJECT-PLANNED (Security Hardening & Review, Automated Test Suites, Deployment & CI/CD, Documentation) |
+| 09  | Mobile App Foundation                                           | 🟡 Title confirmed, 4 lessons PROJECT-PLANNED                                                                                         |
+| 10  | Mobile Shopping & Discovery                                     | 🟡 Title confirmed, 4 lessons PROJECT-PLANNED                                                                                         |
+| 11  | Mobile Checkout, Orders & Payments                              | 🟡 Title confirmed, 4 lessons PROJECT-PLANNED                                                                                         |
+| 12  | Publishing, Roadmap & Launch                                    | 🟡 Title confirmed, absorbed 5 real launch-readiness issues from old Module 9                                                         |
 
 ## 5. How HUR-1 Through the Final Issue Are Organized
 
@@ -51,6 +51,7 @@ Linear does not support renaming issue identifiers, so `HUR-N` numbers remain hi
 ## 6. Issues Completed and Marked Done
 
 Only 5, all independently verified against the real repository state, not assumed:
+
 - `HUR-11` (Project Scaffolding) — pre-existing, unchanged.
 - `HUR-12` (Database Schema & Migrations) — pre-existing, unchanged.
 - `HUR-126` (Creating Complete PRD Plan) — newly marked Done; `docs/plans/PRD.md` verified present and complete.

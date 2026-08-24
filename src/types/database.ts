@@ -31,7 +31,7 @@ export type {
   VerificationToken,
   WhatsappSession,
   Wishlist,
-} from '@prisma/client'
+} from "@prisma/client";
 
 // --- Enums -----------------------------------------------------------------
 // Exported as values, not just types, so they can be used at runtime
@@ -49,64 +49,64 @@ export {
   PaymentMethod,
   PaymentStatus,
   Role,
-} from '@prisma/client'
+} from "@prisma/client";
 
 // --- Utility types ---------------------------------------------------------
 
-export { Prisma } from '@prisma/client'
+export { Prisma } from "@prisma/client";
 
 /**
  * Money and FX columns come back as `Decimal`, never `number`. Convert with
  * `.toNumber()` / `.toFixed(2)` at the boundary — Decimal instances are not
  * serialisable across the React server/client boundary.
  */
-export type { Decimal } from '@prisma/client/runtime/library'
+export type { Decimal } from "@prisma/client/runtime/library";
 
 // --- Common query payloads -------------------------------------------------
 
-import type { Prisma as PrismaNamespace } from '@prisma/client'
+import type { Prisma as PrismaNamespace } from "@prisma/client";
 
 /** Product with everything a product detail page renders. */
 export type ProductWithRelations = PrismaNamespace.ProductGetPayload<{
   include: {
-    images: true
-    specs: true
-    variants: true
-    category: true
-  }
-}>
+    images: true;
+    specs: true;
+    variants: true;
+    category: true;
+  };
+}>;
 
 /** Product shaped for a listing card: primary image and category name only. */
 export type ProductListItem = PrismaNamespace.ProductGetPayload<{
   include: {
-    images: true
-    category: true
-  }
-}>
+    images: true;
+    category: true;
+  };
+}>;
 
 /** Category joined with its immediate children, for nav menus. */
 export type CategoryWithChildren = PrismaNamespace.CategoryGetPayload<{
-  include: { children: true }
-}>
+  include: { children: true };
+}>;
 
 /** Cart with enough detail to price and render the mini-cart. */
 export type CartWithItems = PrismaNamespace.CartGetPayload<{
   include: {
     items: {
       include: {
-        product: { include: { images: true } }
-        variant: true
-      }
-    }
-  }
-}>
+        product: { include: { images: true } };
+        variant: true;
+      };
+    };
+  };
+}>;
 
 /** Order with line items and payment attempts, for order detail and admin. */
 export type OrderWithDetails = PrismaNamespace.OrderGetPayload<{
   include: {
-    items: true
-    payments: true
-    shippingAddress: true
-    coupon: true
-  }
-}>
+    items: true;
+    payments: true;
+    shippingAddress: true;
+    coupon: true;
+  };
+}>;

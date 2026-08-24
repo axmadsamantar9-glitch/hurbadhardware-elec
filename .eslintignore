@@ -1,6 +1,0 @@
-node_modules
-coverage
-.next
-dist
-build
-*.config.js

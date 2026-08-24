@@ -8,19 +8,19 @@
  * - Request configuration for accessing translations and locale info
  */
 
-import { getRequestConfig } from 'next-intl/server'
-import enMessages from '@/messages/en.json'
-import soMessages from '@/messages/so.json'
+import { getRequestConfig } from "next-intl/server";
+import enMessages from "@/messages/en.json";
+import soMessages from "@/messages/so.json";
 
-export const locales = ['en', 'so'] as const
-export type Locale = (typeof locales)[number]
+export const locales = ["en", "so"] as const;
+export type Locale = (typeof locales)[number];
 
-export const defaultLocale: Locale = 'en'
+export const defaultLocale: Locale = "en";
 
 const messages = {
   en: enMessages,
   so: soMessages,
-}
+};
 
 /**
  * Get the request configuration for next-intl.
@@ -29,11 +29,11 @@ const messages = {
  */
 export default getRequestConfig(async ({ locale }) => {
   // Explicitly validate locale against supported locales
-  const isValidLocale = locale && locales.includes(locale as Locale)
-  const resolvedLocale = isValidLocale ? (locale as Locale) : defaultLocale
+  const isValidLocale = locale && locales.includes(locale as Locale);
+  const resolvedLocale = isValidLocale ? (locale as Locale) : defaultLocale;
 
   return {
     locale: resolvedLocale,
     messages: messages[resolvedLocale],
-  }
-})
+  };
+});

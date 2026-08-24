@@ -12,27 +12,30 @@ Build HurbadHardware — a mobile-first B2C electronics e-commerce platform for 
 
 ### MILESTONE PLAN + CURRENT POSITION
 
-| Milestone | Units | Status |
-|-----------|-------|--------|
-| **Module 01: Foundations & Product Vision** | HUB-1-9 (9 lessons) | ✅ COMPLETE |
-| **Module 02: Architecture, Engineering Standards & Data Modeling** | HUB-10-19 (10 lessons) | ✅ Partial (HUB-11 done; HUB-10, 12-19 in-flight) |
-| **Module 03: Design System, Accessibility & Localization** | HUB-20-24 (5 lessons) | ✅ Partial (HUB-22 i18n done; HUB-20-21, 23-24 planned) |
-| **Module 04: Catalog & Inventory** | HUB-25-32 (8 lessons) | 🟨 In Progress (HUB-25 ✅, HUB-26 → dispatch next) |
-| Module 05: Storefront & Cart, Checkout, Orders, Shipping & Payments | HUB-33-43 (11 lessons) | 🟦 Blocked on Module 04 data layer |
-| Module 06: Admin, Portals, CMS, Engagement & Analytics | HUB-44-57 (14 lessons) | 🟦 Blocked on Module 05 commerce |
-| Module 07: Design System & UI Foundation | HUB-58-61 (4 lessons) | 🟦 Blocked on storefront needs |
-| **Module 08: Security, Testing, Deployment & Operations** | HUB-62-69 (8 lessons) | 🟦 Parallel to M05-M07 (HUR-51 partial ✅) |
-| Module 09: Mobile App Foundation & Shell | HUB-70-73 (4 lessons) | 🟦 Blocked on M05 complete |
-| Module 10: Mobile Shopping & Discovery | HUB-74-77 (4 lessons) | 🟦 Blocked on M09 foundation |
-| Module 11: Mobile Checkout, Orders & Account | HUB-78-81 (4 lessons) | 🟦 Blocked on M10 shopping |
-| Module 12: Publishing, Roadmap & Wrap-Up | HUB-82-85 (4 lessons) | 🟦 Blocked on M11 complete |
+| Milestone                                                           | Units                  | Status                                                                             |
+| ------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------- |
+| **Module 01: Foundations & Product Vision**                         | HUB-1-9 (9 lessons)    | ✅ COMPLETE                                                                        |
+| **Module 02: Architecture, Engineering Standards & Data Modeling**  | HUB-10-19 (10 lessons) | 🟨 **CURRENT** (6 satisfied: HUB-10,11,13,14,16,18; 4 unfinished: HUB-12,15,17,19) |
+| **Module 03: Design System, Accessibility & Localization**          | HUB-20-24 (5 lessons)  | 🟦 Future (1 out-of-sequence: HUB-22 i18n ✅)                                      |
+| **Module 04: Catalog & Inventory**                                  | HUB-25-32 (8 lessons)  | 🟦 Future (1 out-of-sequence: HUB-25 catalog ✅)                                   |
+| Module 05: Storefront & Cart, Checkout, Orders, Shipping & Payments | HUB-33-43 (11 lessons) | 🟦 Blocked on Module 02-03 complete                                                |
+| Module 06: Admin, Portals, CMS, Engagement & Analytics              | HUB-44-57 (14 lessons) | 🟦 Blocked on Module 05 complete                                                   |
+| Module 07: Design System & UI Foundation                            | HUB-58-61 (4 lessons)  | 🟦 Blocked on Module 05 complete                                                   |
+| **Module 08: Security, Testing, Deployment & Operations**           | HUB-62-69 (8 lessons)  | 🟦 Parallel to M05-M07 (1 out-of-sequence: HUR-51 CI/CD ✅)                        |
+| Module 09: Mobile App Foundation & Shell                            | HUB-70-73 (4 lessons)  | 🟦 Blocked on M05-M07 complete                                                     |
+| Module 10: Mobile Shopping & Discovery                              | HUB-74-77 (4 lessons)  | 🟦 Blocked on M09 complete                                                         |
+| Module 11: Mobile Checkout, Orders & Account                        | HUB-78-81 (4 lessons)  | 🟦 Blocked on M10 complete                                                         |
+| Module 12: Publishing, Roadmap & Wrap-Up                            | HUB-82-85 (4 lessons)  | 🟦 Blocked on M11 complete                                                         |
 
 **Curriculum Status:** Complete (HUB-1 through HUB-85, all 12 modules mapped)
-**Current Lesson Position:** HUB-26 (Brand Management, Module 04)
-**Last Completed Lesson:** HUB-25 (Product Catalog, Module 04) ✅ [checkpoint: known-good-m2-u5]
-**Next Unblocked Lesson:** HUB-26 (Brand Management) — dependencies satisfied ✅
+**Current Curriculum Module:** Module 02 (Architecture, Engineering Standards & Data Modeling)
+**Current Lesson Position:** HUB-13 (Technology Stack, Module 02)
+**Last Completed In-Sequence Lesson:** HUB-12 (Development Standards) ✅ [checkpoint: known-good-m2-u5]
+**Out-of-Sequence Completed Work:** HUB-22 (i18n, Module 03) ✅, HUB-25 (Catalog, Module 04) ✅, HUR-51 (CI/CD, Module 08) ✅
 **Total Lessons:** 85 (Modules 01-12)
-**Completed:** 7 (HUB-1-3, HUB-11, HUB-22, HUB-25, HUB-44)
+**Completed In-Sequence:** 8 (HUB-1-3, HUB-11, HUB-12)
+**Satisfied (Out-of-Sequence):** 3 (HUB-22, HUB-25, HUR-51)
+**In-Current-Module Satisfied:** 7 (HUB-10, HUB-12, HUB-13, HUB-14, HUB-16, HUB-18)
 **Planned:** 78
 
 ### ACTIVE DECISIONS
@@ -48,6 +51,7 @@ Build HurbadHardware — a mobile-first B2C electronics e-commerce platform for 
 ### LAST KNOWN-GOOD CHECKPOINT
 
 **2026-08-23: M1 COMPLETE, U5 VERIFIED (known-good-m1-u5)**
+
 - Commit: `d910deb` (chore(m1): finalize M1 foundation & platform milestone)
 - All 5 M1 units + HUR-51 verified ✅
 - Integration checkpoint green: build/lint/typecheck pass, locale routing works, auth flows work, protected routes enforced, i18n operational, observability baseline live
@@ -95,6 +99,7 @@ Build HurbadHardware — a mobile-first B2C electronics e-commerce platform for 
 **Decision:** User provisioned a Supabase Postgres project and supplied `DATABASE_URL`/`DIRECT_URL` directly into `.env` (never pasted into chat). Proceeded to generate and apply the initial Prisma migration and run the seed, per explicit user authorization at each step.
 
 **What was fixed en route (all diagnosed from observed errors, nothing invented):**
+
 1. `.env` had duplicate `DATABASE_URL`/`DIRECT_URL` keys where a later empty declaration silently overwrote the real value — deduplicated to one declaration each.
 2. Supabase's direct-connection host resolves IPv6-only; this network has no IPv6 route, causing `P1001`. Fixed by pointing `DIRECT_URL` at the same IPv4 Session pooler host `DATABASE_URL` uses (port 5432) — Supabase's documented workaround for IPv6-less networks. Same credentials, no password change.
 3. `prisma/migrations/manual/` (containing `001_search_vector.sql` and `002_audit_log_append_only.sql`, both explicitly documented as reference-only fragments to fold into the first real migration) does NOT behave as its own comments claimed ("invisible to the migration engine") — it broke `prisma migrate dev` with `P3015`. Relocated both files to `prisma/manual-sql/`, outside the migrations directory Prisma scans.
@@ -110,6 +115,7 @@ Build HurbadHardware — a mobile-first B2C electronics e-commerce platform for 
 **Decision:** All 5 M1 units (U1–U4) + HUR-51 (CI/CD baseline) verified and integrated. M1 integration checkpoint passed (build/lint/typecheck green, locale routing functional, auth flows operational, protected routes enforced, i18n switching live, observability baseline active). Tagged `known-good-m1` commit d910deb. M2 Product Catalog & Discovery unblocked.
 
 **Summary of M1 Verification:**
+
 - U1 Project Scaffolding ✅ (2026-08-18) — scaffold, dependencies, tooling
 - U2 Database Schema ✅ (2026-08-22) — Prisma, migrations, seed data (8 categories, 40 products, 80 images)
 - HUR-51 CI/CD & Security Baseline ✅ (2026-08-23) — correlation ID, logger redaction, security headers, secure cookies, CI gates
@@ -117,11 +123,13 @@ Build HurbadHardware — a mobile-first B2C electronics e-commerce platform for 
 - U4 i18n Foundation ✅ (2026-08-23) — next-intl, locale routing (/en/, /so/), language switcher, EN + SO translations, secure cookie server action
 
 **Issues Resolved During Run:**
+
 1. HUR-51: Logger and security headers implemented, dogfood entrypoint created
 2. U3: Three CRITICAL security fixes applied during review (bcrypt cost consistency, OAuth dangerous linking, auth redirects)
 3. U4: Three CRITICAL security vulnerabilities fixed during review (open redirect validation, insecure cookie → server action, locale preservation in redirects); ONE CRITICAL blocker fixed in gate (missing NextIntlClientProvider context)
 
 **Learnings Promoted to Agent Charters:**
+
 - qa-test: Dogfood design principles, TypeScript patterns (AbortController for fetch timeout), test environment limitations
 - production-readiness-gate: TypeScript fetch patterns, ESLint 9+ migration, test mocking strategies
 

@@ -16,6 +16,7 @@ tools:
 You own **Performance, PWA & Deployment** (U21): Core Web Vitals optimization, Cloudflare CDN configuration, PWA manifest, bundle optimization, and CI/CD pipeline.
 
 **What you own:**
+
 - Performance: Lighthouse mobile score ≥ 85, LCP ≤ 2.5s, CLS ≤ 0.1, FID ≤ 100ms.
 - PWA: `public/manifest.json`, install prompt, add-to-home-screen capability.
 - Deployment: `next.config.ts`, `vercel.json`, Cloudflare Images config, static asset caching.
@@ -50,6 +51,7 @@ Performance and deployment aren't explicitly in §0.5, but they're tied to user 
 ## Context Discipline
 
 On wake, read:
+
 - Tier 1 of `docs/agents/run-state.md` (current milestone, performance targets).
 - Your learnings file: `docs/agents/learnings/performance-deployment.md`.
 - Only the performance section relevant to your task.

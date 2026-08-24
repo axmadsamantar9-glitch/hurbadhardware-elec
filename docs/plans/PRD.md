@@ -8,6 +8,7 @@ version: 4.0
 ---
 
 # HurbadHardware East Africa Electronics Commerce Platform
+
 ## Complete Production PRD + Architecture + Operations + Warranty Management Plan v4
 
 > **Purpose:** This is the single source of truth for building a modern, production-grade electronics e-commerce platform. It combines product requirements, business rules, technical architecture, data model, implementation order, security, payments, inventory, fulfillment, warranty/RMA, marketing, SEO, analytics, operations, testing, launch and post-launch controls.
@@ -15,10 +16,13 @@ version: 4.0
 ## 0. Executive Product Contract
 
 ### 0.1 Product
+
 HurbadHardware is a mobile-first electronics retailer for East Africa, designed initially for Somalia and Kenya, with the architecture prepared for Ethiopia and additional markets.
 
 ### 0.2 Core customer promise
+
 Customers can:
+
 - discover electronics quickly;
 - understand exact specifications and compatibility;
 - see transparent price, shipping, tax and warranty information;
@@ -28,7 +32,9 @@ Customers can:
 - receive reliable email/WhatsApp updates.
 
 ### 0.3 Core business promise
+
 Administrators can:
+
 - manage brands, categories, products, variants and media;
 - manage inventory and procurement;
 - manage orders, payments, refunds, returns and RMA;
@@ -39,9 +45,11 @@ Administrators can:
 - monitor production health and business KPIs.
 
 ### 0.4 Launch principle
+
 **Correctness beats speed.** Payment, inventory, security, historical order integrity and customer trust are launch-critical.
 
 ### 0.5 Permanent invariants
+
 1. Client input is never trusted for price, stock, tax, shipping or payment success.
 2. Payment success is server-authoritative.
 3. Inventory cannot oversell under concurrency.
@@ -54,6 +62,7 @@ Administrators can:
 10. Production launch requires all critical gates to pass.
 
 #
+
 # 0.6 Pre-Build Readiness Gate
 
 Before implementation begins, the following business and production dependencies must be explicitly confirmed. Engineering must not invent missing values.
@@ -104,6 +113,7 @@ Before implementation begins, the following business and production dependencies
 # 1. Scope and Market Strategy
 
 ### 1.1 Launch scope
+
 - Somalia
 - Kenya
 - English + Somali
@@ -115,6 +125,7 @@ Before implementation begins, the following business and production dependencies
 - Electronics catalog and compatibility information
 
 ### 1.2 Prepared-but-gated markets
+
 - Ethiopia / Telebirr
 - Swahili
 - Amharic
@@ -123,6 +134,7 @@ Before implementation begins, the following business and production dependencies
 - Additional payment providers
 
 ### 1.3 Explicitly deferred
+
 - Multi-vendor marketplace
 - Native mobile apps
 - B2B pricing/quotes
@@ -136,6 +148,7 @@ Before implementation begins, the following business and production dependencies
 ## 2. Business Decision Register
 
 The following are **business-owned decisions**. Engineering must not invent them:
+
 - countries/regions served;
 - delivery zones;
 - shipping rates;
@@ -195,7 +208,7 @@ East African consumers lack a regional electronics retailer with localized payme
 - R12. Checkout accepts EVC Plus payments (Somalia mobile money) via the WaafiPay gateway, charged in USD.
 - R13. Checkout accepts eDahab payments (Somalia/Somaliland mobile money via Telesom) charged in USD.
 - R14. Checkout accepts M-Pesa payments (Kenya) routed through Paystack for the launch configuration, charged in KES.
-- R15. *(Deferred to v2 — see Scope Boundaries.)* Checkout accepts Telebirr payments (Ethiopia).
+- R15. _(Deferred to v2 — see Scope Boundaries.)_ Checkout accepts Telebirr payments (Ethiopia).
 - R16. Checkout accepts Visa and Mastercard payments through WaafiPay's card rail, charged in USD.
 - R17. All prices are stored and displayed in USD. Gateways that do not accept USD are charged in their required currency, converted at checkout from the USD base price.
 - R35. When a gateway requires a non-USD currency, checkout displays the converted amount and the applied exchange rate to the customer before payment is authorized.
@@ -277,6 +290,7 @@ East African consumers lack a regional electronics retailer with localized payme
 ### Scope Boundaries
 
 **Deferred to Follow-Up Work (v2)**
+
 - **Telebirr / Ethiopia market (R15).** Requires resolving three blockers first: Telebirr's sandbox is gated behind completed merchant KYC (no pre-onboarding evaluation possible), the API uses two different RSA padding schemes (PSS for the pre-order request, PKCS#1 for the redirect signature), and Telebirr requires source-IP allowlisting which Vercel serverless cannot satisfy without a static-egress proxy. Evaluate Flutterwave's Ethiopia coverage as a lower-cost entry before committing to direct integration.
 - **Direct M-Pesa Daraja integration.** Paystack carries Kenya in v1. Migrate to direct Daraja when Kenya transaction volume makes the ~1.5% aggregator fee exceed the cost of owning the integration. U12's adapter interface keeps this swap contained to one adapter.
 - **Stripe via a US entity (Stripe Atlas).** Only worth it if selling to buyers outside East Africa; WaafiPay covers cards for the target markets.
@@ -292,6 +306,7 @@ East African consumers lack a regional electronics retailer with localized payme
 - Flash sales with countdown timers.
 
 **Outside This Product's Identity**
+
 - Logistics and courier integration (HurbadHardware handles fulfillment manually in v1).
 - Marketplace seller onboarding and commission management.
 - Crypto or BNPL payment methods.
@@ -301,6 +316,7 @@ East African consumers lack a regional electronics retailer with localized payme
 # 4. Technical Architecture and Platform Boundaries
 
 ## 4.1 Frontend
+
 - Next.js App Router + TypeScript.
 - Server-rendered/streamed storefront where SEO/performance benefit.
 - Client components only where interactivity requires them.
@@ -309,12 +325,14 @@ East African consumers lack a regional electronics retailer with localized payme
 - EN/SO locale architecture that can add SW/AM/AR without business-logic duplication.
 
 ## 4.2 Backend
+
 - Server-side business services with strict validation.
 - API contracts define method, auth, authorization, request/response schema, errors, rate limits and idempotency.
 - Business logic must be provider-neutral.
 - All money, inventory and payment decisions happen server-side.
 
 ## 4.3 Data
+
 - PostgreSQL + Prisma.
 - Immutable order/payment snapshots.
 - Inventory ledger + reservations.
@@ -324,6 +342,7 @@ East African consumers lack a regional electronics retailer with localized payme
 - Safe, versioned migrations.
 
 ## 4.4 Infrastructure
+
 - Vercel for application deployment.
 - Cloudflare CDN/WAF.
 - Cloudflare Images/R2 or equivalent approved media boundary.
@@ -332,6 +351,7 @@ East African consumers lack a regional electronics retailer with localized payme
 - Local / Preview-Staging / Production separation.
 
 ## 4.5 Integration boundaries
+
 Payments, WhatsApp, email, storage, FX, analytics and future logistics providers must be isolated behind adapters/wrappers. Provider-specific code must not leak into core commerce rules.
 
 # 5. Modern Electronics Commerce Capability Model
@@ -339,56 +359,72 @@ Payments, WhatsApp, email, storage, FX, analytics and future logistics providers
 The platform is not a generic shop. Electronics require structured product intelligence.
 
 ## 5.1 Category-specific specifications
+
 Templates for smartphones, laptops, tablets, networking, CCTV, printers, components and accessories must be configurable by admins.
 
 ## 5.2 Compatibility
+
 Products support compatible devices/models, connectors, OS support, voltage/current requirements, consumables and explicit compatibility warnings.
 
 ## 5.3 Product identity
+
 Support SKU, barcode/GTIN where applicable, model number, serial/IMEI/MAC/batch identifiers where operationally required.
 
 ## 5.4 Condition and authenticity
+
 NEW / OPEN_BOX / REFURBISHED / optionally USED. Condition must be visible and stock/SKU separation applied where needed.
 
 ## 5.5 Product completeness gate
+
 A product cannot become ACTIVE until mandatory identity, brand, category, price, media, specifications, warranty and compatibility fields are complete.
 
 ## 5.6 Brand/manufacturer/supplier separation
+
 Brand, manufacturer and supplier are separate concepts. Supplier data is admin-only.
 
 ## 5.7 Procurement and receiving
+
 Purchase orders, receiving, partial receiving and inventory posting are auditable.
 
 ## 5.8 Warranty and RMA
+
 Warranty registration and the complete RMA state machine are first-class operational capabilities.
 
 # 6. Commerce Engine
 
 ## 6.1 Pricing
+
 - USD is the authored base price.
 - Server revalidates prices at checkout.
 - Sale pricing is time-bound and server-enforced.
 - Historical order prices never change.
 
 ## 6.2 Promotions
+
 Coupons support percentage/fixed discounts, limits, dates, customer limits, product/category/brand scope and exclusions. Concurrency must not bypass limits.
 
 ## 6.3 Tax
+
 Tax is configurable and business-approved. Tax is calculated server-side and snapshotted per order.
 
 ## 6.4 Shipping
+
 Shipping zones/rates support country, region, city/zone, weight, order value, dimensions and delivery method where required.
 
 ## 6.5 Order totals
+
 `subtotal - discount + tax + shipping = authoritative order total`.
 
 ## 6.6 Inventory
+
 Ledger + reservation + stocktake + receiving + transfer + release + return-to-stock + damage/write-off.
 
 ## 6.7 Order state machine
+
 Explicit legal transitions for placement, processing, shipment, delivery, cancellation, delivery failure, returns and refund-related states.
 
 ## 6.8 Returns/refunds
+
 Full/partial refunds, manual/offline refunds when gateway APIs do not support automated refunds, return policy enforcement, audit trail and gateway reference tracking.
 
 ## 6.9 Warranty Management
@@ -396,6 +432,7 @@ Full/partial refunds, manual/offline refunds when gateway APIs do not support au
 Warranty management is a first-class operational capability and must be linked to the product, SKU/variant, customer, order and—where applicable—serial/IMEI/MAC/batch identifier.
 
 ### Warranty coverage
+
 - Warranty duration is configurable by product/variant and must be business-approved.
 - Warranty start date is derived from the approved business rule, normally the delivery/completion date unless a different rule is explicitly configured.
 - Warranty status must be calculated server-side as ACTIVE, EXPIRING_SOON, EXPIRED, VOID or NOT_COVERED.
@@ -404,7 +441,9 @@ Warranty management is a first-class operational capability and must be linked t
 - Manufacturer, supplier and HurbadHardware warranty responsibilities must be distinguishable.
 
 ### Warranty records
+
 A warranty record should support:
+
 - Warranty ID.
 - Customer and contact information.
 - Order and order-item reference.
@@ -420,6 +459,7 @@ A warranty record should support:
 - Internal notes and audit history.
 
 ### Warranty registration
+
 - Eligible products may be automatically registered from a completed order or manually registered by an authorized admin.
 - Registration must validate the order/customer/product relationship.
 - Serial/IMEI/MAC identifiers must be unique where the product type requires uniqueness.
@@ -427,10 +467,12 @@ A warranty record should support:
 - Admins must be able to search warranty records by customer, order, SKU, serial/IMEI/MAC, warranty ID and status.
 
 ### Warranty claims
+
 Warranty claims must support:
 Requested → eligibility review → approved/rejected → troubleshooting/diagnosis → service/repair → replacement OR refund → completed/closed.
 
 A claim must record:
+
 - Claim reason and customer description.
 - Eligibility decision and reason.
 - Diagnostic findings.
@@ -443,6 +485,7 @@ A claim must record:
 - Resolution and closure reason.
 
 ### Warranty controls
+
 - Warranty eligibility is server-authoritative.
 - Expired or excluded warranties cannot be approved without an authorized override.
 - Overrides require a reason, actor and audit record.
@@ -451,11 +494,13 @@ A claim must record:
 - Warranty claims and resolutions must be included in operational reporting and audit logs.
 
 ## 6.10 RMA
+
 Requested → review → approved/rejected → received → inspecting → repair/replace/refund → completed.
 
 # 7. Customer, Admin and Operations
 
 ## 7.1 Customer
+
 - registration/login/Google;
 - email verification/reset where enabled;
 - profile and addresses;
@@ -469,66 +514,85 @@ Requested → review → approved/rejected → received → inspecting → repai
 - account deletion request.
 
 ## 7.2 WhatsApp
+
 Web and WhatsApp must use the same order/payment/inventory truth. WhatsApp sessions are stateful, deduplicated and resilient to timeout/restart.
 
 ## 7.3 Admin modules
+
 Dashboard, orders, payments, payment exceptions, products, brands, categories, inventory, suppliers, purchase orders, customers, warranties, warranty claims, reviews, coupons, campaigns, content, support, returns/RMA, refunds, analytics, settings and audit logs.
 
 ## 7.4 Future RBAC
+
 Architecture supports SUPER_ADMIN, CATALOG_MANAGER, INVENTORY_MANAGER, ORDER_MANAGER, SUPPORT_AGENT, FINANCE/PAYMENTS and CONTENT_MANAGER.
 
 ## 7.5 Support
+
 Ticket queue, assignment, priority, status, customer/order lookup, internal notes, history and safe attachments.
 
 # 8. Discovery, Marketing, SEO and Analytics
 
 ## 8.1 Storefront
+
 Modern electronics homepage with search-first header, categories, featured brands, best sellers, new arrivals, deals, trust signals, payment methods, warranty/returns, delivery coverage and WhatsApp CTA.
 
 ## 8.2 Search
+
 Search product name, localized names, descriptions, brand, SKU, model, tags and practical typo/synonym matches. Record zero-result queries.
 
 ## 8.3 Discovery
+
 Recently viewed, related products, best sellers from completed orders, featured collections and rule-based frequently-bought-together.
 
 ## 8.4 SEO
+
 Unique metadata, canonical, hreflang, Product/Breadcrumb/Organization/WebSite schema where appropriate, sitemap, robots, redirects, 404/410, noindex for private pages, and no thin indexable filter URLs.
 
 ## 8.5 Marketing
+
 Banners, campaigns, landing pages, coupons, featured collections, UTM metadata and scheduled content.
 
 ## 8.6 Analytics
+
 Product views, search, filters, cart, checkout, payment, purchase, WhatsApp, reviews and wishlist events with privacy controls. Admin reporting distinguishes gross sales, discounts, tax, shipping, refunds, net sales and known payment fees.
 
 # 9. Security, Privacy, Reliability and Recovery
 
 ## 9.1 Application security
+
 Validation, Zod/equivalent schemas, parameterized queries, CSRF where applicable, XSS-safe rendering, secure headers, CSP review, HSTS, secure cookies, request limits, upload validation and SSRF protection.
 
 ## 9.2 Authentication
+
 Rate limiting, generic auth errors, strong passwords, single-use expiring reset tokens, session revocation and no secrets in logs.
 
 ## 9.3 Admin
+
 Server-side RBAC, audit logs, optional/strongly recommended TOTP 2FA, re-authentication for sensitive actions.
 
 ## 9.4 Payment security
+
 No card PAN/CVV storage, server-authoritative status, callback verification, replay protection, unique gateway references and idempotency.
 
 ## 9.5 Privacy
+
 Privacy, terms, refund/return, shipping, warranty, cookie and support policies. Data minimization and account-deletion workflow.
 
 ## 9.6 Observability
+
 Structured logs with request/correlation ID, error monitoring, latency, payment failures, reconciliation failures, cron failures, WhatsApp/email failures, uptime and health checks.
 
 ## 9.7 Disaster recovery
+
 Automated backups, approved RPO/RTO, documented restore drill, emergency contacts and recovery owner.
 
 ## 9.8 Launch monitoring
+
 Monitor 4xx/5xx, checkout conversion, payment success/failure, pending payments, reconciliation, inventory anomalies, order creation, WhatsApp, email, DB errors and latency.
 
 # 10. Quality Assurance and Validation
 
 ## 10.1 Test layers
+
 1. Unit: pricing, tax, shipping, coupon, FX, inventory and payment state machines.
 2. Integration: DB transactions, provider adapters and webhooks.
 3. API: auth, catalog, cart, checkout, payments, support and admin.
@@ -539,6 +603,7 @@ Monitor 4xx/5xx, checkout conversion, payment success/failure, pending payments,
 8. Disaster recovery: backup/restore drill.
 
 ## 10.2 Critical E2E
+
 - Guest → cart → login → merge.
 - Every enabled payment rail.
 - Missing callback → reconciliation.
@@ -562,58 +627,74 @@ Monitor 4xx/5xx, checkout conversion, payment success/failure, pending payments,
 - Unauthorized admin access.
 
 ## 10.3 Production NO-GO
+
 Any unresolved critical/high issue involving payment, inventory, authentication, authorization, data loss, secret exposure, security, or incorrect order totals is an automatic NO-GO.
 
 # 11. Master Implementation Roadmap
 
 ## Phase 0 — Business readiness
+
 Merchant onboarding, payment credentials, policies, launch catalog, shipping/tax/warranty decisions.
 
 ## Phase 1 — Foundation
+
 Repo, environments, CI/CD, database, migrations, observability foundation, security baseline.
 
 ## Phase 2 — Identity and access
+
 Customer auth, admin RBAC, password reset, sessions, audit foundation.
 
 ## Phase 3 — Catalog foundation
+
 Brands, manufacturers, categories, product master data, variants, SKU/barcodes, media.
 
 ## Phase 4 — Electronics intelligence
+
 Category-specific specs, compatibility, warranty, condition, serial/IMEI/MAC/batch support.
 
 ## Phase 5 — Storefront
+
 Homepage, catalog, category/brand pages, product detail, search, compare, wishlist, discovery.
 
 ## Phase 6 — Commerce engine
+
 Pricing, promotions, coupons, tax, shipping and order totals.
 
 ## Phase 7 — Inventory and fulfillment
+
 Ledger, reservations, receiving, stocktake, locations, picking/packing/shipping.
 
 ## Phase 8 — Checkout and payments
+
 Checkout, FX, gateway adapters, callbacks, reconciliation, payment exceptions.
 
 ## Phase 9 — Customer operations
+
 Accounts, tracking, notifications, cancellation, returns, refunds, warranty and RMA.
 
 ## Phase 10 — WhatsApp
+
 State machine, webhook security, payment truth sharing, templates and reliability.
 
 ## Phase 11 — Admin operations
+
 Orders, payments, inventory, procurement, support, content, marketing, analytics and audit.
 
 ## Phase 12 — SEO/performance/accessibility
+
 Technical SEO, structured data, Core Web Vitals, low-bandwidth optimization, accessibility.
 
 ## Phase 13 — Security/reliability
+
 Pen-test style checks, rate limits, backups, restore, monitoring, alerting and rollback.
 
 ## Phase 14 — Full QA and launch
+
 Staging E2E, business acceptance, payment verification, data import validation, launch gates.
 
 ## Phase 15 — Post-launch
-First-24-hour monitoring, incident response, controlled fixes, conversion optimization and roadmap evaluation.
 
+First-24-hour monitoring, incident response, controlled fixes, conversion optimization and roadmap evaluation.
 
 # 14. Detailed Implementation Specification (preserved from v3)
 
@@ -882,30 +963,30 @@ inventory_logs (id, product_id, variant_id, delta INT, reason TEXT,
 
 ### Unit Index
 
-| U-ID | Title | Key Files | Depends On |
-|---|---|---|---|
-| U1 | Project Scaffolding | `package.json`, `next.config.ts`, `prisma/schema.prisma` | — |
-| U2 | Database Schema & Migrations | `prisma/schema.prisma`, `prisma/seed.ts` | U1 |
-| U3 | Authentication System | `src/lib/auth.ts`, `src/app/api/auth/`, `src/app/(auth)/` | U2 |
-| U4 | i18n Foundation | `src/middleware.ts`, `messages/*.json`, `src/app/[locale]/` | U1 |
-| U5 | Product Data Layer | `src/lib/products.ts`, `src/app/api/products/` | U2 |
-| U6 | Product Catalog UI | `src/app/[locale]/(storefront)/products/`, `src/components/catalog/` | U4, U5 |
-| U7 | Product Detail Page | `src/app/[locale]/(storefront)/products/[slug]/`, `src/components/product/` | U6 |
-| U8 | Category Navigation | `src/app/[locale]/(storefront)/category/[slug]/`, `src/components/navigation/` | U5, U4 |
-| U9 | Cart, Wishlist, Comparison | `src/store/cartStore.ts`, `src/app/api/cart/`, `src/app/[locale]/(storefront)/cart/` | U3, U5 |
-| U10 | Reviews & Coupons | `src/lib/reviews.ts`, `src/lib/coupons.ts`, `src/app/api/reviews/` | U3, U5 |
-| U22 | Currency & FX Layer | `src/lib/currency/`, `src/app/api/cron/fx-rates/` | U2 |
-| U11 | Checkout Flow | `src/app/[locale]/(storefront)/checkout/`, `src/lib/orders.ts` | U9, U10, U22 |
-| U12 | Payment Gateway Adapters | `src/lib/payments/`, `src/app/api/payments/` | U11, U22 |
-| U23 | Payment Reconciliation | `src/lib/payments/reconcile.ts`, `src/app/api/cron/reconcile/` | U12 |
-| U14 | Customer Account Dashboard | `src/app/[locale]/account/` | U3, U11 |
-| U15 | Order Tracking & Notifications | `src/lib/notifications.ts`, `src/app/[locale]/track/` | U11, U12, U23 |
-| U16 | WhatsApp Business API | `src/lib/whatsapp/`, `src/app/api/whatsapp/` | U11, U15 |
-| U17 | Admin: Products & Inventory | `src/app/admin/products/`, `src/app/admin/inventory/` | U3, U5 |
-| U18 | Admin: Order Management | `src/app/admin/orders/` | U17, U15 |
-| U19 | Admin: Analytics Dashboard | `src/app/admin/page.tsx`, `src/lib/admin/analytics.ts` | U18 |
-| U20 | SEO Optimization | `src/app/sitemap.ts`, `src/lib/seo.ts`, per-page `generateMetadata` | U6, U7, U8 |
-| U21 | Performance & Deployment | `next.config.ts`, `vercel.json`, `public/manifest.json` | U20, U16, U19 |
+| U-ID | Title                          | Key Files                                                                            | Depends On    |
+| ---- | ------------------------------ | ------------------------------------------------------------------------------------ | ------------- |
+| U1   | Project Scaffolding            | `package.json`, `next.config.ts`, `prisma/schema.prisma`                             | —             |
+| U2   | Database Schema & Migrations   | `prisma/schema.prisma`, `prisma/seed.ts`                                             | U1            |
+| U3   | Authentication System          | `src/lib/auth.ts`, `src/app/api/auth/`, `src/app/(auth)/`                            | U2            |
+| U4   | i18n Foundation                | `src/middleware.ts`, `messages/*.json`, `src/app/[locale]/`                          | U1            |
+| U5   | Product Data Layer             | `src/lib/products.ts`, `src/app/api/products/`                                       | U2            |
+| U6   | Product Catalog UI             | `src/app/[locale]/(storefront)/products/`, `src/components/catalog/`                 | U4, U5        |
+| U7   | Product Detail Page            | `src/app/[locale]/(storefront)/products/[slug]/`, `src/components/product/`          | U6            |
+| U8   | Category Navigation            | `src/app/[locale]/(storefront)/category/[slug]/`, `src/components/navigation/`       | U5, U4        |
+| U9   | Cart, Wishlist, Comparison     | `src/store/cartStore.ts`, `src/app/api/cart/`, `src/app/[locale]/(storefront)/cart/` | U3, U5        |
+| U10  | Reviews & Coupons              | `src/lib/reviews.ts`, `src/lib/coupons.ts`, `src/app/api/reviews/`                   | U3, U5        |
+| U22  | Currency & FX Layer            | `src/lib/currency/`, `src/app/api/cron/fx-rates/`                                    | U2            |
+| U11  | Checkout Flow                  | `src/app/[locale]/(storefront)/checkout/`, `src/lib/orders.ts`                       | U9, U10, U22  |
+| U12  | Payment Gateway Adapters       | `src/lib/payments/`, `src/app/api/payments/`                                         | U11, U22      |
+| U23  | Payment Reconciliation         | `src/lib/payments/reconcile.ts`, `src/app/api/cron/reconcile/`                       | U12           |
+| U14  | Customer Account Dashboard     | `src/app/[locale]/account/`                                                          | U3, U11       |
+| U15  | Order Tracking & Notifications | `src/lib/notifications.ts`, `src/app/[locale]/track/`                                | U11, U12, U23 |
+| U16  | WhatsApp Business API          | `src/lib/whatsapp/`, `src/app/api/whatsapp/`                                         | U11, U15      |
+| U17  | Admin: Products & Inventory    | `src/app/admin/products/`, `src/app/admin/inventory/`                                | U3, U5        |
+| U18  | Admin: Order Management        | `src/app/admin/orders/`                                                              | U17, U15      |
+| U19  | Admin: Analytics Dashboard     | `src/app/admin/page.tsx`, `src/lib/admin/analytics.ts`                               | U18           |
+| U20  | SEO Optimization               | `src/app/sitemap.ts`, `src/lib/seo.ts`, per-page `generateMetadata`                  | U6, U7, U8    |
+| U21  | Performance & Deployment       | `next.config.ts`, `vercel.json`, `public/manifest.json`                              | U20, U16, U19 |
 
 ---
 
@@ -918,6 +999,7 @@ inventory_logs (id, product_id, variant_id, delta INT, reason TEXT,
 **Dependencies:** None.
 
 **Files:**
+
 - `package.json`
 - `next.config.ts`
 - `tsconfig.json`
@@ -930,6 +1012,7 @@ inventory_logs (id, product_id, variant_id, delta INT, reason TEXT,
 - `vercel.json`
 
 **Approach:**
+
 1. Scaffold with `create-next-app@latest` — App Router, TypeScript, Tailwind CSS, ESLint.
 2. Install core dependencies: `prisma`, `@prisma/client`, `next-auth@beta`, `next-intl`, `zustand`, `@cloudflare/next-on-pages`, `shadcn/ui`.
 3. Configure `next.config.ts` with Cloudflare Images loader and `experimental.serverActions`.
@@ -938,6 +1021,7 @@ inventory_logs (id, product_id, variant_id, delta INT, reason TEXT,
 6. Configure `vercel.json` with Node.js 20 runtime and function region (`fra1` for EU/Africa latency).
 
 **Environment variables (`.env.example`):**
+
 ```
 DATABASE_URL=
 NEXTAUTH_SECRET=
@@ -983,18 +1067,21 @@ RESEND_API_KEY=
 **Dependencies:** U1.
 
 **Files:**
+
 - `prisma/schema.prisma`
 - `prisma/migrations/` (generated)
 - `prisma/seed.ts`
 - `src/types/database.ts` (re-exported Prisma types)
 
 **Approach:**
+
 1. Define all models per the schema in Planning Contract: `User`, `Address`, `Category`, `Product`, `ProductImage`, `ProductSpecification`, `ProductVariant`, `Review`, `Cart`, `CartItem`, `Wishlist`, `Coupon`, `Order`, `OrderItem`, `Payment`, `WhatsAppSession`, `InventoryLog`.
 2. Add `search_vector` as an `Unsupported("tsvector")` field on `Product` with a raw migration adding the `GENERATED ALWAYS AS (to_tsvector(...))` computed column and GIN index.
 3. Add `@@index` decorators for frequent query patterns: `Product.categoryId`, `Product.isActive`, `Order.userId`, `Order.status`, `Payment.orderId`.
 4. Seed: 8 root categories, 5 sample products per category with 2 images each, 1 admin user (`admin@hurbad.com`), 2 test coupons.
 
 **Test scenarios:**
+
 - Seed runs without FK violations; all 8 categories created.
 - `prisma migrate status` shows all migrations applied.
 - `Product.findMany({ where: { isActive: true }})` returns seeded products.
@@ -1014,6 +1101,7 @@ RESEND_API_KEY=
 **Dependencies:** U2.
 
 **Files:**
+
 - `src/lib/auth.ts` (NextAuth config)
 - `src/lib/auth-utils.ts` (helpers: `getCurrentUser`, `requireAdmin`)
 - `src/app/api/auth/[...nextauth]/route.ts`
@@ -1025,6 +1113,7 @@ RESEND_API_KEY=
 - `src/components/auth/RegisterForm.tsx`
 
 **Approach:**
+
 1. Configure NextAuth v5 with Prisma adapter using `@auth/prisma-adapter`.
 2. Add `Credentials` provider (bcrypt password hash/verify) and `Google` provider.
 3. Add `role` to the JWT session via `callbacks.session` so `session.user.role` is available client-side.
@@ -1032,6 +1121,7 @@ RESEND_API_KEY=
 5. Registration server action hashes password with `bcrypt` (cost 12) and creates `User` with `role: CUSTOMER`.
 
 **Test scenarios:**
+
 - Happy path: register with email/password → redirected to account dashboard.
 - Happy path: login with Google → session created with role `CUSTOMER`.
 - Edge case: duplicate email registration returns `EMAIL_TAKEN` error message.
@@ -1053,6 +1143,7 @@ RESEND_API_KEY=
 **Dependencies:** U1.
 
 **Files:**
+
 - `src/i18n.ts`
 - `src/middleware.ts` (merge with auth middleware)
 - `messages/en.json`
@@ -1062,6 +1153,7 @@ RESEND_API_KEY=
 - `src/components/LanguageSwitcher.tsx`
 
 **Approach:**
+
 1. Configure `next-intl` with `createNextIntlPlugin` in `next.config.ts`.
 2. Middleware: detect locale from `Accept-Language` header (preferred) or cookie; default to `en`; redirect `/` to `/en` or `/so`.
 3. Create `messages/en.json` and `messages/so.json` with top-level namespaces: `common`, `nav`, `product`, `cart`, `checkout`, `account`, `admin`.
@@ -1069,6 +1161,7 @@ RESEND_API_KEY=
 5. All product `name`, `description`, and spec fields use the `[locale]` suffix convention already in schema (`name_en`, `name_so`); a `useLocaleField` hook returns the correct column key.
 
 **Test scenarios:**
+
 - Browser with `Accept-Language: so` visits `/` → redirected to `/so`.
 - Switching language from EN to SO updates all visible strings without page reload.
 - `useTranslations('product')('addToCart')` returns `"Add to Cart"` in EN and `"Ku dar Dambiisha"` in SO.
@@ -1087,6 +1180,7 @@ RESEND_API_KEY=
 **Dependencies:** U2.
 
 **Files:**
+
 - `src/lib/products.ts`
 - `src/lib/categories.ts`
 - `src/app/api/products/route.ts`
@@ -1094,6 +1188,7 @@ RESEND_API_KEY=
 - `src/app/api/categories/route.ts`
 
 **Approach:**
+
 1. `getProducts(params)` in `src/lib/products.ts` accepts `{ search?, categorySlug?, brand?, minPrice?, maxPrice?, inStock?, sort?, page?, pageSize? }` and returns `{ products, total, page }`. Uses Prisma `findMany` with `where`, `orderBy`, and `skip`/`take`.
 2. For `search`: when `search` is provided, append a Prisma raw query condition: `WHERE search_vector @@ plainto_tsquery('english', ${search})`.
 3. `getProductBySlug(slug, locale)` returns product with images, specs, and variants; selects `name_en`/`name_so` based on locale.
@@ -1101,6 +1196,7 @@ RESEND_API_KEY=
 5. Expose as Next.js Route Handlers with `revalidate = 60` for CDN caching.
 
 **Test scenarios:**
+
 - `getProducts({})` returns paginated products (default page size 24).
 - `getProducts({ search: 'samsung' })` returns products with Samsung in name or description.
 - `getProducts({ categorySlug: 'smartphones', sort: 'price_asc' })` returns smartphones ordered by price.
@@ -1122,6 +1218,7 @@ RESEND_API_KEY=
 **Dependencies:** U4, U5.
 
 **Files:**
+
 - `src/app/[locale]/(storefront)/products/page.tsx` (Server Component)
 - `src/app/[locale]/(storefront)/products/loading.tsx`
 - `src/components/catalog/ProductCard.tsx`
@@ -1132,6 +1229,7 @@ RESEND_API_KEY=
 - `src/components/catalog/Pagination.tsx`
 
 **Approach:**
+
 1. `products/page.tsx` is a Server Component that reads search params from `searchParams` prop and calls `getProducts()` server-side; no client fetch.
 2. `FiltersSidebar` manages filter state in URL query params via `useRouter().push` so filters are bookmarkable and shareable.
 3. `SearchBar` debounces input (300 ms) before updating the URL `q` param.
@@ -1140,6 +1238,7 @@ RESEND_API_KEY=
 6. Mobile: filters collapse into a slide-over drawer; grid switches from 2-column to 1-column below 640 px.
 
 **Test scenarios:**
+
 - Page renders 24 product cards on load with no search params.
 - Typing "laptop" in search and waiting 300 ms updates the product grid to laptop results.
 - Applying "Brand: Samsung" filter reduces results to Samsung products; URL contains `brand=Samsung`.
@@ -1163,6 +1262,7 @@ RESEND_API_KEY=
 **Dependencies:** U6.
 
 **Files:**
+
 - `src/app/[locale]/(storefront)/products/[slug]/page.tsx`
 - `src/app/[locale]/(storefront)/products/[slug]/loading.tsx`
 - `src/components/product/ImageGallery.tsx` (Client Component)
@@ -1176,6 +1276,7 @@ RESEND_API_KEY=
 - `src/store/compareStore.ts`
 
 **Approach:**
+
 1. Page is a Server Component; `generateStaticParams` pre-builds all product slugs at build time with ISR.
 2. `generateMetadata` returns `title`, `description`, and JSON-LD `Product` schema (see U20 for full SEO treatment).
 3. `ImageGallery`: main image with thumbnail strip; click/swipe changes main image; supports pinch-zoom on mobile.
@@ -1185,6 +1286,7 @@ RESEND_API_KEY=
 7. Reviews section fetches approved reviews; shows average rating and rating distribution bar.
 
 **Test scenarios:**
+
 - Page renders with correct product name in active locale.
 - Selecting a variant updates price display; selecting out-of-stock variant disables Add to Cart.
 - Adding 3 products to compare, then clicking Compare navigates to `/compare` with 3-column table.
@@ -1205,18 +1307,21 @@ RESEND_API_KEY=
 **Dependencies:** U5, U4.
 
 **Files:**
+
 - `src/app/[locale]/(storefront)/category/[slug]/page.tsx`
 - `src/components/navigation/CategoryNav.tsx`
 - `src/components/navigation/MobileNav.tsx` (hamburger menu)
 - `src/components/navigation/Breadcrumb.tsx`
 
 **Approach:**
+
 1. `CategoryNav` renders top-level categories as a horizontal tab bar on desktop; collapses to hamburger menu on mobile.
 2. Clicking a category navigates to `/[locale]/category/[slug]`; the page calls `getProducts({ categorySlug })` and reuses the `ProductGrid` from U6.
 3. `Breadcrumb` renders the category path (Home → Smartphones) for SEO and navigation; uses `BreadcrumbList` JSON-LD.
 4. Sub-categories rendered as a chip row below the page title.
 
 **Test scenarios:**
+
 - Desktop: all 8 category tabs visible in nav bar.
 - Mobile (375 px): nav bar replaced by hamburger; opening menu shows all categories.
 - `/category/smartphones` renders only smartphone products.
@@ -1235,6 +1340,7 @@ RESEND_API_KEY=
 **Dependencies:** U3, U5.
 
 **Files:**
+
 - `src/store/cartStore.ts` (Zustand, localStorage persistence for guests)
 - `src/lib/cart.ts` (server-side cart DB operations)
 - `src/app/api/cart/route.ts` (GET, POST, DELETE)
@@ -1247,6 +1353,7 @@ RESEND_API_KEY=
 - `src/store/compareStore.ts`
 
 **Approach:**
+
 1. Guest cart: Zustand store with `persist` middleware writing to `localStorage`.
 2. Authenticated cart: server-side operations via `src/lib/cart.ts` (Prisma `Cart` + `CartItem`).
 3. On login: `mergeCart` function reads guest cart items from `localStorage`, upserts them into the DB cart, and clears `localStorage`.
@@ -1255,6 +1362,7 @@ RESEND_API_KEY=
 6. Compare store: Zustand in-memory; max 3 products; exposed to `CompareButton` (U7).
 
 **Test scenarios:**
+
 - Guest adds product to cart; refreshes page; cart persists via `localStorage`.
 - Guest logs in; cart items merge with any existing DB cart; `localStorage` cart cleared.
 - Incrementing cart item quantity updates subtotal in `CartSummary`.
@@ -1276,6 +1384,7 @@ RESEND_API_KEY=
 **Dependencies:** U3, U5.
 
 **Files:**
+
 - `src/lib/reviews.ts`
 - `src/lib/coupons.ts`
 - `src/app/api/reviews/route.ts` (POST, GET)
@@ -1284,12 +1393,14 @@ RESEND_API_KEY=
 - `src/components/reviews/StarRating.tsx`
 
 **Approach:**
+
 1. `POST /api/reviews`: verify user has a completed order containing the product (`is_verified_purchase`); enforce one review per user/product; set `is_approved: false` (admin approves or auto-approve per config).
 2. `GET /api/reviews?productId=`: returns approved reviews, average rating, rating histogram.
 3. `POST /api/coupons/validate`: accepts `{ code, subtotalUsd }`; checks code exists, not expired, usage below cap, and `min_order_usd` satisfied; returns `{ valid, type, value, discountUsd }`.
 4. Average rating on `Product` is computed at read time via Prisma aggregate (not stored separately).
 
 **Test scenarios:**
+
 - Verified buyer submits 5-star review → created with `is_verified_purchase: true`.
 - Non-buyer attempts review → API returns 403.
 - Second review by same buyer on same product → API returns 409.
@@ -1311,6 +1422,7 @@ RESEND_API_KEY=
 **Dependencies:** U9, U10, U22.
 
 **Files:**
+
 - `src/app/[locale]/(storefront)/checkout/page.tsx` (Client Component stepper)
 - `src/app/[locale]/(storefront)/checkout/confirmation/page.tsx`
 - `src/lib/checkout.ts` (validation, stock check)
@@ -1321,6 +1433,7 @@ RESEND_API_KEY=
 - `src/components/checkout/OrderSummary.tsx`
 
 **Approach:**
+
 1. Checkout is gated: redirect to login if unauthenticated.
 2. Step 1 — Address: pre-fill saved addresses; allow new address entry; validate required fields.
 3. Step 2 — Order Review: display cart items with current prices (re-fetched), applied coupon, total.
@@ -1330,6 +1443,7 @@ RESEND_API_KEY=
 7. After order creation, redirect to gateway initiation (U12); confirmation is driven by `queryStatus`, not by the redirect (R36). Land the customer on `/checkout/confirmation?orderId=`, which polls until terminal.
 
 **Test scenarios:**
+
 - Unauthenticated user at `/checkout` redirects to login; returns to checkout after login.
 - Address form: missing required field prevents step progression.
 - Stock check: checkout with quantity exceeding stock returns `INSUFFICIENT_STOCK` error.
@@ -1354,6 +1468,7 @@ RESEND_API_KEY=
 **Dependencies:** U2.
 
 **Files:**
+
 - `src/lib/currency/rates.ts`
 - `src/lib/currency/convert.ts`
 - `src/lib/currency/format.ts`
@@ -1361,6 +1476,7 @@ RESEND_API_KEY=
 - `vercel.json` (cron registration)
 
 **Approach:**
+
 1. `GET /api/cron/fx-rates` runs hourly via Vercel Cron; fetches USD→KES from the configured provider and inserts an `fx_rates` row. Never updates in place — the history is the audit trail.
 2. `getRate('USD', 'KES')` returns the most recent row. If the newest row is older than 6 hours, it throws rather than silently using a stale rate; checkout surfaces this as "Kenyan payment temporarily unavailable" instead of charging a wrong amount.
 3. `convert(amountUsd, 'KES')` applies the rate plus the configured spread, then **rounds up to a whole integer** — Daraja and Paystack's M-Pesa rail reject non-integer KES.
@@ -1368,6 +1484,7 @@ RESEND_API_KEY=
 5. The route is protected by a `CRON_SECRET` bearer check so it cannot be triggered externally.
 
 **Test scenarios:**
+
 - Cron route inserts a new `fx_rates` row; the previous row is retained, not overwritten.
 - `getRate` returns the newest row when several exist.
 - `getRate` throws `StaleRateError` when the newest row is older than 6 hours.
@@ -1388,6 +1505,7 @@ RESEND_API_KEY=
 **Dependencies:** U11, U22.
 
 **Files:**
+
 - `src/lib/payments/gateway.ts` (interface + factory)
 - `src/lib/payments/waafipay.ts`
 - `src/lib/payments/edahab.ts`
@@ -1404,26 +1522,27 @@ RESEND_API_KEY=
 ```typescript
 // directional guidance — not implementation specification
 interface PaymentGateway {
-  readonly chargeCurrency: 'USD' | 'KES'
-  initiatePayment(p: InitiateParams): Promise<InitiateResult>
-  queryStatus(reference: string): Promise<TerminalStatus>   // authority (KTD14)
-  validateCallback?(rawBody: string, headers: Headers): boolean
+  readonly chargeCurrency: "USD" | "KES";
+  initiatePayment(p: InitiateParams): Promise<InitiateResult>;
+  queryStatus(reference: string): Promise<TerminalStatus>; // authority (KTD14)
+  validateCallback?(rawBody: string, headers: Headers): boolean;
 }
 ```
 
-2. **WaafiPay (EVC Plus + cards).** Single `POST /asm` endpoint dispatched by a `serviceName` field; credentials (`merchantUid`, `apiUserId`, `apiKey`) travel inside the request body under `serviceParams`. Charge in USD natively. Use `API_PREAUTHORIZE` rather than `API_PURCHASE` so a dropped connection can be cancelled cleanly instead of leaving an orphaned charge. Treat `responseCode: 2001` as *request accepted*, not *money moved* — read `params.state` for the real outcome. Amounts are truncated (not rounded) beyond 2dp, so reconcile against the returned amount rather than the sent amount.
+2. **WaafiPay (EVC Plus + cards).** Single `POST /asm` endpoint dispatched by a `serviceName` field; credentials (`merchantUid`, `apiUserId`, `apiKey`) travel inside the request body under `serviceParams`. Charge in USD natively. Use `API_PREAUTHORIZE` rather than `API_PURCHASE` so a dropped connection can be cancelled cleanly instead of leaving an orphaned charge. Treat `responseCode: 2001` as _request accepted_, not _money moved_ — read `params.state` for the real outcome. Amounts are truncated (not rounded) beyond 2dp, so reconcile against the returned amount rather than the sent amount.
 
 3. **eDahab.** `POST /Issueinvoice?hash=<sha256hex>` where the hash is `SHA256(rawJsonBody + apiSecret)`. Build the JSON string **once**, hash that exact string, and transmit that same string — a second `JSON.stringify` or any client-library re-serialization breaks the signature. Charge in USD natively. There is no webhook: `CheckInvoiceStatus` is the only trustworthy confirmation. The browser `returnUrl` is a UI cue only.
 
 4. **Paystack (M-Pesa Kenya).** Bearer secret key auth. Initialize a transaction with the KES integer amount from U22, `channels: ['mobile_money']`, and the customer's Kenyan MSISDN. Verify via `GET /transaction/verify/:reference`.
 
-5. `POST /api/payments/callback/[gateway]` handles inbound callbacks. It **never trusts the payload**: it validates the signature where the gateway offers one (WaafiPay's `X-Webhook-Signature`, HMAC-SHA256 over `{timestamp}.{event_id}.{raw_body}`, constant-time compared), then calls `queryStatus` and writes the result of *that* call. Capture the raw request body before JSON parsing or signature validation cannot work.
+5. `POST /api/payments/callback/[gateway]` handles inbound callbacks. It **never trusts the payload**: it validates the signature where the gateway offers one (WaafiPay's `X-Webhook-Signature`, HMAC-SHA256 over `{timestamp}.{event_id}.{raw_body}`, constant-time compared), then calls `queryStatus` and writes the result of _that_ call. Capture the raw request body before JSON parsing or signature validation cannot work.
 
 6. `GET /api/payments/status/[orderId]` lets the checkout UI poll while waiting on a wallet prompt.
 
 7. `UNIQUE(gateway, gateway_reference)` on `payments` makes duplicate callback delivery a no-op at the database level.
 
 **Test scenarios:**
+
 - `WaafiPayAdapter.initiatePayment` sends credentials in the body under `serviceParams`; returns a pending result with a reference.
 - WaafiPay responds `responseCode: 2001` with `params.state: 'FAILED'` → adapter reports failure, not success.
 - WaafiPay returns an amount truncated below the sent amount → reconciliation uses the returned amount.
@@ -1451,12 +1570,14 @@ interface PaymentGateway {
 **Dependencies:** U12.
 
 **Files:**
+
 - `src/lib/payments/reconcile.ts`
 - `src/app/api/cron/reconcile/route.ts`
 - `src/app/admin/payments/page.tsx` (reconciliation visibility for admins)
 - `vercel.json` (cron registration)
 
 **Approach:**
+
 1. `GET /api/cron/reconcile` runs every 2 minutes via Vercel Cron, protected by `CRON_SECRET`.
 2. Selects `Payment` rows with `status = PENDING` and `created_at` older than 2 minutes, ordered oldest first, capped per run to stay inside the function timeout.
 3. For each, calls the adapter's `queryStatus`; on a terminal result, updates the payment and its order inside one transaction, and triggers the U15 notification.
@@ -1465,6 +1586,7 @@ interface PaymentGateway {
 6. `/admin/payments` lists payments currently pending or expired so staff can see stuck money without database access.
 
 **Test scenarios:**
+
 - Payment pending 3 minutes with a gateway reporting success → marked `COMPLETED`, order `PROCESSING`, notification sent.
 - Payment pending with gateway reporting failure → marked `FAILED`, stock restored to the exact prior quantity.
 - Payment pending 31 minutes with the gateway still returning pending → marked `EXPIRED`, stock restored, order flagged.
@@ -1488,6 +1610,7 @@ interface PaymentGateway {
 **Dependencies:** U3, U11.
 
 **Files:**
+
 - `src/app/[locale]/account/page.tsx` (redirect to `/account/orders`)
 - `src/app/[locale]/account/orders/page.tsx`
 - `src/app/[locale]/account/orders/[id]/page.tsx`
@@ -1497,6 +1620,7 @@ interface PaymentGateway {
 - `src/components/account/`
 
 **Approach:**
+
 1. All account pages are Server Components fetching user data server-side (no client fetch); protected via middleware (per U3).
 2. `/account/orders` lists orders sorted by `created_at DESC` with status badge, total, and link to detail.
 3. `/account/orders/[id]` shows order items, shipping address, payment method, and status timeline.
@@ -1505,6 +1629,7 @@ interface PaymentGateway {
 6. `/account/wishlist` shows wishlist products with price and Add to Cart button.
 
 **Test scenarios:**
+
 - Unauthenticated request to `/account` redirects to login.
 - Order list shows orders sorted newest first.
 - Order detail shows correct items, quantities, and status timeline with timestamps.
@@ -1524,6 +1649,7 @@ interface PaymentGateway {
 **Dependencies:** U11, U12, U23.
 
 **Files:**
+
 - `src/app/[locale]/track/[orderId]/page.tsx`
 - `src/lib/notifications.ts`
 - `src/lib/email.ts` (Resend wrapper)
@@ -1531,6 +1657,7 @@ interface PaymentGateway {
 - `src/lib/email-templates/status-update.tsx`
 
 **Approach:**
+
 1. `/track/[orderId]` renders publicly (no auth required) given a valid `orderId`; shows order status, items (without prices), and a timeline. To prevent enumeration, display only the last 4 chars of the order ID in the URL — verify the full UUID in the query.
 2. `sendOrderNotification(orderId, event)` is the central notification dispatcher: sends email via Resend + WhatsApp via U16's `sendWhatsAppMessage` when the customer has a WhatsApp phone on file.
 3. Email templates use React Email components for consistent HTML.
@@ -1538,6 +1665,7 @@ interface PaymentGateway {
 5. Notifications are enqueued via a Vercel Cron function or triggered synchronously from admin order status update (U18).
 
 **Test scenarios:**
+
 - `/track/<validOrderId>` renders order status; last-4 of order ID matches URL.
 - `/track/<invalidOrderId>` returns 404.
 - Order placed → Resend API called with `order-confirmation` template → email contains order number and items.
@@ -1557,12 +1685,14 @@ interface PaymentGateway {
 **Dependencies:** U11, U15.
 
 **Files:**
+
 - `src/lib/whatsapp/client.ts` (Meta Cloud API wrapper)
 - `src/lib/whatsapp/order-flow.ts` (state machine)
 - `src/lib/whatsapp/message-templates.ts`
 - `src/app/api/whatsapp/webhook/route.ts` (GET for verification, POST for messages)
 
 **Approach:**
+
 1. Webhook GET handler: responds to Meta's hub challenge verification.
 2. Webhook POST handler: parses incoming messages, looks up or creates a `WhatsAppSession`, routes to `orderFlow.handleMessage(session, message)`.
 3. `orderFlow` is a state machine with states: `IDLE → CATEGORY_SELECTION → PRODUCT_SELECTION → QUANTITY → ADDRESS → PAYMENT_SELECTION → CONFIRM → COMPLETED`.
@@ -1572,6 +1702,7 @@ interface PaymentGateway {
 7. `sendWhatsAppMessage(phone, message)` is the utility used by U15 for notifications.
 
 **Test scenarios:**
+
 - GET webhook with correct verify token → responds with hub.challenge.
 - GET webhook with wrong verify token → returns 403.
 - Incoming "Hi" message → bot responds with category list.
@@ -1597,6 +1728,7 @@ interface PaymentGateway {
 **Dependencies:** U3, U5.
 
 **Files:**
+
 - `src/app/admin/layout.tsx` (admin shell with sidebar nav)
 - `src/app/admin/products/page.tsx`
 - `src/app/admin/products/new/page.tsx`
@@ -1610,6 +1742,7 @@ interface PaymentGateway {
 - `src/lib/admin/inventory.ts`
 
 **Approach:**
+
 1. All admin routes protected by `role === 'ADMIN'` middleware check (per U3).
 2. `ProductForm` handles both create and edit with fields: name (EN + SO), description (EN + SO), category, brand, SKU, base price, stock quantity, variants (dynamic field array), specs (key-value pairs EN + SO), featured toggle, active toggle.
 3. `ImageUploader` uploads files directly to Cloudflare R2 via a pre-signed URL obtained from `POST /api/admin/upload`; stores the R2 URL in `ProductImage`.
@@ -1618,6 +1751,7 @@ interface PaymentGateway {
 6. Category management: drag-to-reorder list; add child category; rename; deactivate.
 
 **Test scenarios:**
+
 - Admin creates new product with EN + SO names, 2 images, 3 specs → product appears in storefront after creation.
 - Image upload: file uploaded to R2; `ProductImage` URL stored correctly.
 - Admin edits product price → updated price reflected in storefront within 60 seconds (ISR revalidation).
@@ -1638,12 +1772,14 @@ interface PaymentGateway {
 **Dependencies:** U17, U15.
 
 **Files:**
+
 - `src/app/admin/orders/page.tsx`
 - `src/app/admin/orders/[id]/page.tsx`
 - `src/lib/admin/orders.ts`
 - `src/components/admin/OrderStatusSelect.tsx`
 
 **Approach:**
+
 1. Orders list: filterable by status, date range, payment method; sortable by date and total; paginated (50 per page).
 2. Order detail: shows customer info, items with quantities, shipping address, payment record, status timeline.
 3. `OrderStatusSelect`: dropdown to change order status; on change, calls `updateOrderStatus(orderId, newStatus)` which: updates `Order.status`, creates a timeline entry, calls `sendOrderNotification` (U15).
@@ -1651,6 +1787,7 @@ interface PaymentGateway {
 5. Bulk status update: select multiple orders → apply status to all.
 
 **Test scenarios:**
+
 - Admin changes order status from `PLACED` to `PROCESSING` → customer receives email and WhatsApp notification.
 - Admin adds tracking number when setting status to `SHIPPED` → tracking number appears in customer notification.
 - Bulk status update on 3 orders → all 3 updated; 3 customer notifications sent.
@@ -1670,6 +1807,7 @@ interface PaymentGateway {
 **Dependencies:** U18.
 
 **Files:**
+
 - `src/app/admin/page.tsx`
 - `src/lib/admin/analytics.ts`
 - `src/components/admin/charts/RevenueChart.tsx` (Client Component)
@@ -1677,6 +1815,7 @@ interface PaymentGateway {
 - `src/components/admin/StatCard.tsx`
 
 **Approach:**
+
 1. `analytics.ts` provides Prisma aggregate queries:
    - `getTotalRevenue(from, to)`: sum of `Order.total_usd` where `payment_status = COMPLETED`.
    - `getOrderCount(from, to)`: count of orders by status.
@@ -1689,6 +1828,7 @@ interface PaymentGateway {
 6. All queries use `where: { createdAt: { gte: from, lte: to }}` with parameterized dates (no raw SQL for analytics).
 
 **Test scenarios:**
+
 - Default dashboard (last 30 days): revenue stat matches sum of completed order totals in DB.
 - Switching to "Last 7 days" updates all stats and charts.
 - Top products table shows products ordered by units sold (descending).
@@ -1707,6 +1847,7 @@ interface PaymentGateway {
 **Dependencies:** U6, U7, U8.
 
 **Files:**
+
 - `src/app/sitemap.ts`
 - `src/app/robots.ts`
 - `src/lib/seo.ts`
@@ -1714,6 +1855,7 @@ interface PaymentGateway {
 - `generateMetadata` additions in all storefront page files
 
 **Approach:**
+
 1. `src/lib/seo.ts`: `buildProductMetadata(product, locale)` returns Next.js `Metadata` object with `title`, `description`, `openGraph`, `twitter`, `alternates.canonical`.
 2. Each product page calls `generateMetadata` (async Server Component export) using `buildProductMetadata`.
 3. JSON-LD: `Product` schema on product pages (name, image, offers.price, offers.priceCurrency = "USD", description, brand).
@@ -1724,6 +1866,7 @@ interface PaymentGateway {
 8. `hreflang` tags: `alternates.languages` set to `{ en: '/en/products/[slug]', so: '/so/products/[slug]' }` on all localized pages.
 
 **Test scenarios:**
+
 - Product page: `<title>` contains product name; `<meta name="description">` contains product description excerpt.
 - Product page: `<script type="application/ld+json">` present with `@type: Product` and USD offer.
 - Sitemap (`/sitemap.xml`): valid XML; all active product slugs present; no inactive products.
@@ -1744,6 +1887,7 @@ interface PaymentGateway {
 **Dependencies:** U20, U16, U19.
 
 **Files:**
+
 - `next.config.ts` (final image domains, bundle analyzer)
 - `vercel.json` (function config, headers, redirects)
 - `public/manifest.json` (PWA manifest)
@@ -1751,6 +1895,7 @@ interface PaymentGateway {
 - `.github/workflows/ci.yml` (lint + type-check + build on PR)
 
 **Approach:**
+
 1. **Cloudflare CDN:** All static assets served via Cloudflare's edge network automatically (Vercel's Cloudflare integration or proxied via Cloudflare). Set `Cache-Control: public, max-age=31536000, immutable` on `/_next/static/`.
 2. **Cloudflare Images loader:** Confirm `next.config.ts` loader function transforms Next.js image URLs to Cloudflare Images delivery URLs with `?w=`, `?h=`, `?f=auto`.
 3. **Bundle optimization:** Enable `@next/bundle-analyzer`; identify and code-split any client-side component ≥ 50 kB; lazy-load any payment-provider SDK only on the checkout page; do not include Stripe unless a future approved scope adds it.
@@ -1759,6 +1904,7 @@ interface PaymentGateway {
 6. **CI pipeline:** GitHub Actions runs `tsc --noEmit`, ESLint, and `next build` on every PR targeting `main`.
 
 **Test scenarios:**
+
 - Lighthouse mobile score on `/[locale]/products` ≥ 85 (LCP ≤ 2.5 s, CLS ≤ 0.1, FID ≤ 100 ms).
 - Cloudflare Images: `<img>` in rendered HTML uses Cloudflare delivery URL with width/format params.
 - PWA install prompt appears on mobile Chrome after 2 visits.
@@ -1771,26 +1917,27 @@ interface PaymentGateway {
 
 ## Verification Contract
 
-| Gate | Command / Method | Applies To |
-|---|---|---|
-| Type check | `npx tsc --noEmit` | All units |
-| Lint | `npx eslint src/` | All units |
-| Build | `npx next build` | All units |
-| DB migrations | `npx prisma migrate status` | U2 |
-| Seed | `npx prisma db seed` | U2 |
-| Payment initiation (staging) | Manual test per adapter with real or sandbox credentials | U12 |
-| Reconciliation with callbacks disabled | Disable callback route in staging; verify checkout still reaches `COMPLETED` | U23 |
-| FX freshness | Confirm two cron runs produce two `fx_rates` rows; verify `StaleRateError` path | U22 |
-| WhatsApp flow (staging) | Manual conversation test on Meta developer test number | U16 |
-| Lighthouse audit | Lighthouse CLI on Vercel preview URL | U21 |
-| Rich Results Test | Google Rich Results Test on product URL | U20 |
-| Sitemap validity | W3C Sitemap validator | U20 |
+| Gate                                   | Command / Method                                                                | Applies To |
+| -------------------------------------- | ------------------------------------------------------------------------------- | ---------- |
+| Type check                             | `npx tsc --noEmit`                                                              | All units  |
+| Lint                                   | `npx eslint src/`                                                               | All units  |
+| Build                                  | `npx next build`                                                                | All units  |
+| DB migrations                          | `npx prisma migrate status`                                                     | U2         |
+| Seed                                   | `npx prisma db seed`                                                            | U2         |
+| Payment initiation (staging)           | Manual test per adapter with real or sandbox credentials                        | U12        |
+| Reconciliation with callbacks disabled | Disable callback route in staging; verify checkout still reaches `COMPLETED`    | U23        |
+| FX freshness                           | Confirm two cron runs produce two `fx_rates` rows; verify `StaleRateError` path | U22        |
+| WhatsApp flow (staging)                | Manual conversation test on Meta developer test number                          | U16        |
+| Lighthouse audit                       | Lighthouse CLI on Vercel preview URL                                            | U21        |
+| Rich Results Test                      | Google Rich Results Test on product URL                                         | U20        |
+| Sitemap validity                       | W3C Sitemap validator                                                           | U20        |
 
 ---
 
 ## Definition of Done
 
 **Global criteria (all units)**
+
 - `tsc --noEmit` exits 0.
 - ESLint exits 0.
 - `next build` exits 0.
@@ -1799,6 +1946,7 @@ interface PaymentGateway {
 - No dead-end or experimental code left in the diff.
 
 **Per-unit criteria**
+
 - Unit's test scenarios are covered by test files or manual verification steps documented in the PR.
 - Feature-bearing unit's new files are listed in the PR description.
 - Any Prisma schema change includes a generated migration file.
@@ -1806,30 +1954,29 @@ interface PaymentGateway {
 
 **Sprint completion gates**
 
-| Sprint | Units | Gate |
-|---|---|---|
-| 1 — Foundation | U1–U4 | `next build` passes; auth login/register works; `/so/` route renders in Somali |
-| 2 — Catalog | U5–U8 | Product listing and detail pages render; search returns results; categories navigate |
-| 3 — Shopping | U9–U10 | Guest cart persists; login merges cart; reviews submit; coupon validates |
-| 4 — Payments | U22, U11, U12, U23 | Checkout creates order with frozen FX rate; each adapter completes a test payment; checkout still completes with callbacks disabled |
-| 5 — Accounts | U14–U15 | Account dashboard shows orders; email and WhatsApp notifications received |
-| 6 — WhatsApp | U16 | Full WhatsApp conversation creates a DB order |
-| 7 — Admin | U17–U19 | Admin can CRUD products; update order status; view revenue dashboard |
-| 8 — Production | U20–U21 | Lighthouse ≥ 90; Rich Results Test passes; CI pipeline green on PR |
+| Sprint         | Units              | Gate                                                                                                                                |
+| -------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 1 — Foundation | U1–U4              | `next build` passes; auth login/register works; `/so/` route renders in Somali                                                      |
+| 2 — Catalog    | U5–U8              | Product listing and detail pages render; search returns results; categories navigate                                                |
+| 3 — Shopping   | U9–U10             | Guest cart persists; login merges cart; reviews submit; coupon validates                                                            |
+| 4 — Payments   | U22, U11, U12, U23 | Checkout creates order with frozen FX rate; each adapter completes a test payment; checkout still completes with callbacks disabled |
+| 5 — Accounts   | U14–U15            | Account dashboard shows orders; email and WhatsApp notifications received                                                           |
+| 6 — WhatsApp   | U16                | Full WhatsApp conversation creates a DB order                                                                                       |
+| 7 — Admin      | U17–U19            | Admin can CRUD products; update order status; view revenue dashboard                                                                |
+| 8 — Production | U20–U21            | Lighthouse ≥ 90; Rich Results Test passes; CI pipeline green on PR                                                                  |
 
 **Cleanup criterion:** Abandoned-approach code (failed gateway adapter attempts, scrapped UI experiments) is removed before the sprint-closing PR is merged.
 
 ---
 
-
 # 15. Detailed Requirements Addenda (preserved from v3)
-
 
 ## 51. Final Electronics-Specific QA Matrix
 
 Before GO, test at least:
 
 ### Catalog
+
 - Brand pages.
 - Category pages.
 - Variant pricing.
@@ -1843,6 +1990,7 @@ Before GO, test at least:
 - Product availability.
 
 ### Commerce
+
 - Sale price.
 - Coupon concurrency.
 - Tax calculation.
@@ -1853,6 +2001,7 @@ Before GO, test at least:
 - Concurrent checkout.
 
 ### Orders
+
 - Successful order.
 - Cancellation.
 - Delivery failure.
@@ -1864,6 +2013,7 @@ Before GO, test at least:
 - Refund failure.
 
 ### Inventory
+
 - Purchase receiving.
 - Manual adjustment.
 - Reservation.
@@ -1874,6 +2024,7 @@ Before GO, test at least:
 - Concurrent inventory update.
 
 ### Payments
+
 - Every enabled gateway.
 - Callback success.
 - Callback missing.
@@ -1887,6 +2038,7 @@ Before GO, test at least:
 - Refund.
 
 ### Customer
+
 - Register.
 - Login.
 - Google login.
@@ -1900,6 +2052,7 @@ Before GO, test at least:
 - Account deletion request.
 
 ### Admin
+
 - RBAC.
 - Product CRUD.
 - Brand CRUD.
@@ -1917,6 +2070,7 @@ Before GO, test at least:
 - Analytics.
 
 ### Platform
+
 - EN/SO.
 - Responsive mobile.
 - Low bandwidth.
@@ -1939,6 +2093,7 @@ Before GO, test at least:
 No new feature may weaken an existing invariant.
 
 The following invariants are permanent:
+
 1. Client input is never trusted for price, stock, tax, shipping or payment success.
 2. Payment success is server-authoritative.
 3. Inventory cannot oversell through concurrent checkout.
@@ -1977,6 +2132,7 @@ The implementing agent should execute in this order:
 21. Post-launch monitoring and controlled optimization.
 
 #
+
 # 53.5 Implementation Agent Handoff Checklist
 
 Before an implementation agent starts a production build, it must verify the following checklist against the Business Decision Register and Pre-Build Readiness Gate:
@@ -2002,6 +2158,7 @@ If a checkbox is not satisfied, the agent must not fabricate the missing busines
 # 54. Final NO-GUESS Gate
 
 If any of the following is unknown, the implementation agent must stop only at the relevant business decision and ask for confirmation rather than inventing a value:
+
 - Tax rate.
 - Shipping price.
 - Delivery time.
@@ -2022,7 +2179,6 @@ Everything else that is purely technical may be implemented using the architectu
 
 # End of HurbadHardware Full Production PRD v3
 
-
 # 16. Final Production Gate
 
 # 12. Final Definition of Done and Launch Gate
@@ -2030,6 +2186,7 @@ Everything else that is purely technical may be implemented using the architectu
 The platform is **10/10 production-ready only when all critical requirements are satisfied**, not merely when the UI looks complete.
 
 ### Product
+
 - Product data complete and validated.
 - Brand/category/product/variant integrity.
 - Electronics specifications and compatibility.
@@ -2037,6 +2194,7 @@ The platform is **10/10 production-ready only when all critical requirements are
 - Search/discovery works.
 
 ### Commerce
+
 - Price/tax/shipping rules server-authoritative.
 - Coupon concurrency safe.
 - Inventory reservation safe.
@@ -2046,6 +2204,7 @@ The platform is **10/10 production-ready only when all critical requirements are
 - Warranty terms and replacement-warranty policy approved.
 
 ### Payments
+
 - Every enabled rail tested.
 - Missing/duplicate/forged callback tests.
 - Server-side status verification.
@@ -2054,6 +2213,7 @@ The platform is **10/10 production-ready only when all critical requirements are
 - Refund path tested.
 
 ### Security
+
 - No secrets in Git/client/logs.
 - Auth/RBAC tested.
 - Rate limits active.
@@ -2062,6 +2222,7 @@ The platform is **10/10 production-ready only when all critical requirements are
 - No critical/high security findings.
 
 ### Operations
+
 - Admin can operate the full lifecycle.
 - Support can resolve customer issues.
 - Audit logs exist.
@@ -2070,6 +2231,7 @@ The platform is **10/10 production-ready only when all critical requirements are
 - Rollback tested.
 
 ### Experience
+
 - Mobile-first.
 - Low-bandwidth friendly.
 - EN/SO human-reviewed.
@@ -2078,6 +2240,7 @@ The platform is **10/10 production-ready only when all critical requirements are
 - Core Web Vitals target met.
 
 ### Launch decision
+
 **GO** only when all critical gates pass.
 
 **NO-GO** if any critical payment, inventory, authentication, authorization, security, data-loss, privacy, order-total or recovery issue remains.
@@ -2095,12 +2258,12 @@ The platform is **10/10 production-ready only when all critical requirements are
 9. Keep launch scope explicit; deferred features must not accidentally become dependencies.
 10. Maintain one source of truth: this v4 document.
 
-
 # Appendix A — Consolidated v4 Update Notes
 
 This update strengthens the existing PRD's implementation-readiness claim by making the pre-build business and production dependencies explicit.
 
 ### Added
+
 - A dedicated **Pre-Build Readiness Gate**.
 - A concrete list of required confirmations for payment, shipping, tax, returns, warranty, catalog, suppliers, delivery coverage, legal policies, WhatsApp Business, infrastructure and operational ownership.
 - Explicit gate behavior for unresolved decisions.
@@ -2109,6 +2272,7 @@ This update strengthens the existing PRD's implementation-readiness claim by mak
 - A requirement for named operational owners and a final GO/NO-GO decision owner.
 
 ### Warranty management added
+
 - First-class warranty records linked to customers, orders, products and serial/IMEI/MAC/batch identifiers.
 - Warranty lifecycle and server-side eligibility/status rules.
 - Warranty registration and customer/admin lookup.
@@ -2118,6 +2282,7 @@ This update strengthens the existing PRD's implementation-readiness claim by mak
 - Warranty QA and launch gates.
 
 ### Not changed
+
 - Existing product scope.
 - Existing architecture and provider-adapter approach.
 - Existing payment, inventory, security, QA and launch invariants.

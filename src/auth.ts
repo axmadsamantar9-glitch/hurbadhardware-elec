@@ -10,191 +10,191 @@
  * is configured to support both flows.
  */
 
-import NextAuth from 'next-auth'
-import Credentials from 'next-auth/providers/credentials'
-import Google from 'next-auth/providers/google'
-import { PrismaAdapter } from '@auth/prisma-adapter'
-import { db } from '@/lib/db'
-import { logger } from '@/lib/logger'
-import { getCorrelationId } from '@/lib/request-context'
-import { isValidEmail, isStrongPassword, hashPassword, verifyPassword } from '@/lib/auth-utils'
-import type { User as AuthJSUser } from 'next-auth'
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
+import { getCorrelationId } from "@/lib/request-context";
+import { isValidEmail, isStrongPassword, hashPassword, verifyPassword } from "@/lib/auth-utils";
+import type { User as AuthJSUser } from "next-auth";
 
-declare module 'next-auth' {
+declare module "next-auth" {
   interface Session {
     user: {
-      id: string
-      email?: string | null
-      name?: string | null
-      role: 'CUSTOMER' | 'ADMIN'
-      locale?: string
-      image?: string | null
-    }
+      id: string;
+      email?: string | null;
+      name?: string | null;
+      role: "CUSTOMER" | "ADMIN";
+      locale?: string;
+      image?: string | null;
+    };
   }
 
   interface User {
-    id: string
-    email?: string | null
-    name?: string | null
-    role: 'CUSTOMER' | 'ADMIN'
-    locale?: string
+    id: string;
+    email?: string | null;
+    name?: string | null;
+    role: "CUSTOMER" | "ADMIN";
+    locale?: string;
   }
 }
-
-
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(db),
   providers: [
     Credentials({
-      id: 'credentials',
-      name: 'Email and Password',
+      id: "credentials",
+      name: "Email and Password",
       credentials: {
-        email: { label: 'Email', type: 'email', placeholder: 'name@example.com' },
-        password: { label: 'Password', type: 'password' },
-        action: { label: 'Action', type: 'hidden' }, // 'signin' or 'register'
+        email: { label: "Email", type: "email", placeholder: "name@example.com" },
+        password: { label: "Password", type: "password" },
+        action: { label: "Action", type: "hidden" }, // 'signin' or 'register'
       },
       async authorize(credentials): Promise<AuthJSUser | null> {
-        const correlationId = await getCorrelationId()
+        const correlationId = await getCorrelationId();
 
         if (!credentials?.email || !credentials?.password) {
-          logger.warn('Credentials provider: missing email or password', {
+          logger.warn("Credentials provider: missing email or password", {
             correlationId,
             action: credentials?.action,
-          })
-          return null
+          });
+          return null;
         }
 
-        const email = String(credentials.email).toLowerCase()
-        const password = String(credentials.password)
-        const action = String(credentials.action || 'signin')
+        const email = String(credentials.email).toLowerCase();
+        const password = String(credentials.password);
+        const action = String(credentials.action || "signin");
 
         // --- Register flow ---
-        if (action === 'register') {
+        if (action === "register") {
           // Validate email format
           if (!isValidEmail(email)) {
-            logger.info('Register: invalid email format', {
+            logger.info("Register: invalid email format", {
               correlationId,
-              email: email.substring(0, 3) + '***',
-            })
-            throw new Error('Invalid email format')
+              email: email.substring(0, 3) + "***",
+            });
+            throw new Error("Invalid email format");
           }
 
           // Validate password strength
           if (!isStrongPassword(password)) {
-            logger.info('Register: weak password', {
+            logger.info("Register: weak password", {
               correlationId,
-              email: email.substring(0, 3) + '***',
-            })
-            throw new Error('Password must be at least 8 characters with uppercase, lowercase, number, and special character')
+              email: email.substring(0, 3) + "***",
+            });
+            throw new Error(
+              "Password must be at least 8 characters with uppercase, lowercase, number, and special character"
+            );
           }
 
           // Check if email already exists
-          const existingUser = await db.user.findUnique({ where: { email } })
+          const existingUser = await db.user.findUnique({ where: { email } });
           if (existingUser) {
-            logger.info('Register: email already exists', {
+            logger.info("Register: email already exists", {
               correlationId,
-              email: email.substring(0, 3) + '***',
-            })
-            throw new Error('Email already in use')
+              email: email.substring(0, 3) + "***",
+            });
+            throw new Error("Email already in use");
           }
 
           // Create new user with hashed password
-          const passwordHash = await hashPassword(password)
+          const passwordHash = await hashPassword(password);
           try {
             const newUser = await db.user.create({
               data: {
                 email,
                 passwordHash,
-                role: 'CUSTOMER',
+                role: "CUSTOMER",
                 emailVerified: new Date(), // Auto-verify on registration for MVP
               },
-            })
+            });
 
-            logger.info('Register: user created', {
+            logger.info("Register: user created", {
               correlationId,
               userId: newUser.id,
-              email: email.substring(0, 3) + '***',
-            })
+              email: email.substring(0, 3) + "***",
+            });
 
             return {
               id: newUser.id,
               email: newUser.email,
               name: newUser.name,
-              role: newUser.role as 'CUSTOMER' | 'ADMIN',
+              role: newUser.role as "CUSTOMER" | "ADMIN",
               locale: newUser.locale,
-            }
+            };
           } catch (error) {
-            logger.error('Register: database error', {
+            logger.error("Register: database error", {
               correlationId,
-              email: email.substring(0, 3) + '***',
+              email: email.substring(0, 3) + "***",
               error,
-            })
-            throw new Error('Failed to create user')
+            });
+            throw new Error("Failed to create user");
           }
         }
 
         // --- Sign-in flow ---
         try {
-          const user = await db.user.findUnique({ where: { email } })
+          const user = await db.user.findUnique({ where: { email } });
 
           if (!user || !user.passwordHash) {
-            logger.info('Sign-in: user not found or no password', {
+            logger.info("Sign-in: user not found or no password", {
               correlationId,
-              email: email.substring(0, 3) + '***',
-            })
-            throw new Error('Invalid email or password')
+              email: email.substring(0, 3) + "***",
+            });
+            throw new Error("Invalid email or password");
           }
 
-          const passwordValid = await verifyPassword(password, user.passwordHash)
+          const passwordValid = await verifyPassword(password, user.passwordHash);
           if (!passwordValid) {
-            logger.info('Sign-in: invalid password', {
+            logger.info("Sign-in: invalid password", {
               correlationId,
               userId: user.id,
-              email: email.substring(0, 3) + '***',
-            })
-            throw new Error('Invalid email or password')
+              email: email.substring(0, 3) + "***",
+            });
+            throw new Error("Invalid email or password");
           }
 
-          logger.info('Sign-in: successful', {
+          logger.info("Sign-in: successful", {
             correlationId,
             userId: user.id,
-            email: email.substring(0, 3) + '***',
-          })
+            email: email.substring(0, 3) + "***",
+          });
 
           return {
             id: user.id,
             email: user.email,
             name: user.name,
-            role: user.role as 'CUSTOMER' | 'ADMIN',
+            role: user.role as "CUSTOMER" | "ADMIN",
             locale: user.locale,
-          }
+          };
         } catch (error) {
-          logger.error('Sign-in: error', {
+          logger.error("Sign-in: error", {
             correlationId,
-            email: email.substring(0, 3) + '***',
+            email: email.substring(0, 3) + "***",
             error,
-          })
-          throw error
+          });
+          throw error;
         }
       },
     }),
 
     // Google OAuth (optional; will skip silently if GOOGLE_CLIENT_ID is not set)
-    ...(process.env.GOOGLE_CLIENT_ID &&
-    process.env.GOOGLE_CLIENT_SECRET && [
-      Google({
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        allowDangerousEmailAccountLinking: false,
-      }),
-    ]) ||
-      [],
+    ...((process.env.GOOGLE_CLIENT_ID &&
+      process.env.GOOGLE_CLIENT_SECRET && [
+        Google({
+          clientId: process.env.GOOGLE_CLIENT_ID,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          allowDangerousEmailAccountLinking: false,
+        }),
+      ]) ||
+      []),
   ],
 
   pages: {
-    signIn: '/en/auth/signin', // Default to English; middleware will handle locale redirect
-    newUser: '/en/auth/register',
+    signIn: "/en/auth/signin", // Default to English; middleware will handle locale redirect
+    newUser: "/en/auth/register",
   },
 
   callbacks: {
@@ -205,11 +205,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
      */
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
-        token.role = (user as AuthJSUser & { role?: 'CUSTOMER' | 'ADMIN' }).role || 'CUSTOMER'
-        token.locale = (user as AuthJSUser & { locale?: string }).locale
+        token.id = user.id;
+        token.role = (user as AuthJSUser & { role?: "CUSTOMER" | "ADMIN" }).role || "CUSTOMER";
+        token.locale = (user as AuthJSUser & { locale?: string }).locale;
       }
-      return token
+      return token;
     },
 
     /**
@@ -219,11 +219,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
      */
     async session({ session, token }) {
       if (session.user && token) {
-        session.user.id = (token.id as string) || ''
-        session.user.role = (token.role as 'CUSTOMER' | 'ADMIN') || 'CUSTOMER'
-        session.user.locale = (token.locale as string) || 'en'
+        session.user.id = (token.id as string) || "";
+        session.user.role = (token.role as "CUSTOMER" | "ADMIN") || "CUSTOMER";
+        session.user.locale = (token.locale as string) || "en";
       }
-      return session
+      return session;
     },
 
     /**
@@ -233,22 +233,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
      * auth (e.g., admin-only) is checked in the middleware.
      */
     async authorized({ auth }) {
-      return !!auth
+      return Boolean(auth);
     },
   },
 
   events: {
     async signIn({ user }) {
-      const correlationId = await getCorrelationId()
-      logger.info('Auth event: signIn', {
+      const correlationId = await getCorrelationId();
+      logger.info("Auth event: signIn", {
         correlationId,
         userId: user.id,
-      })
+      });
     },
   },
 
   session: {
-    strategy: 'jwt',
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
@@ -257,4 +257,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 
   trustHost: true,
-})
+});

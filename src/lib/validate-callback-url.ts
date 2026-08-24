@@ -12,10 +12,10 @@
  * - Default to '/' if URL is null or invalid
  */
 export function validateCallbackUrl(url: string | null): string {
-  if (!url) return '/'
+  if (!url) return "/";
   // Reject absolute URLs and protocol-based redirects (e.g., https://attacker.com)
-  if (!url.startsWith('/') || url.includes('://')) {
-    return '/'
+  if (!url.startsWith("/") || url.includes("://")) {
+    return "/";
   }
-  return url
+  return url;
 }

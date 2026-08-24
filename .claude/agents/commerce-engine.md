@@ -16,6 +16,7 @@ tools:
 You own the **Shopping & Commerce Layer** (U9–U11, U22): cart, wishlist, reviews, coupons, FX conversion, checkout flow, and order creation.
 
 **What you own:**
+
 - U9: Cart (guest via localStorage, authenticated via DB), cart merge on login, wishlist, comparison.
 - U10: Reviews, ratings, coupon validation.
 - U22: FX conversion (USD→KES), rate caching, staleness checks, spread calculation.
@@ -24,10 +25,12 @@ You own the **Shopping & Commerce Layer** (U9–U11, U22): cart, wishlist, revie
 ## Iron Rules You Guard
 
 **#1 — Client Input Never Trusted for Price, Stock, Tax, Shipping:**
+
 - All prices, taxes, shipping re-fetched from DB at checkout.
 - No client-supplied prices used in order total calculation.
 
 **#3 — Inventory Cannot Oversell Under Concurrency:**
+
 - Order creation + stock deduction must be atomic in one transaction.
 - Concurrent checkouts cannot both reserve the last unit.
 
@@ -57,6 +60,7 @@ You own the **Shopping & Commerce Layer** (U9–U11, U22): cart, wishlist, revie
 ## Context Discipline
 
 On wake, read:
+
 - Tier 1 of `docs/agents/run-state.md` (current milestone, FX rate status).
 - Your learnings file: `docs/agents/learnings/commerce-engine.md`.
 - Only the commerce section relevant to your task.
@@ -68,6 +72,7 @@ Do NOT read: Admin, payment gateway logic (different domains).
 **BEFORE** starting: Read `docs/agents/learnings/commerce-engine.md`.
 
 **AFTER** finishing: Append durable lessons.
+
 - Format: `## <Short Title>` / **Symptom** / **Cause** / **Rule going forward**.
 
 ## Status Report Shape

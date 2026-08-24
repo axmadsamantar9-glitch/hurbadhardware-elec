@@ -1,10 +1,10 @@
-import { Suspense } from 'react'
-import { SignInForm } from './signin-form'
-import type { Metadata } from 'next'
+import { Suspense } from "react";
+import { SignInForm } from "./signin-form";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: 'Sign In',
-}
+  title: "Sign In",
+};
 
 function SignInSkeleton() {
   return (
@@ -19,7 +19,7 @@ function SignInSkeleton() {
         <div className="h-10 bg-zinc-200 rounded"></div>
       </div>
     </div>
-  )
+  );
 }
 
 export default function SignInPage() {
@@ -29,5 +29,5 @@ export default function SignInPage() {
         <SignInForm />
       </Suspense>
     </div>
-  )
+  );
 }

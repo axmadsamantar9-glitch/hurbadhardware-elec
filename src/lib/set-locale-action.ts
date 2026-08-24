@@ -1,6 +1,6 @@
-'use server'
+"use server";
 
-import { cookies } from 'next/headers'
+import { cookies } from "next/headers";
 
 /**
  * Server action to set locale preference securely (U4).
@@ -9,21 +9,21 @@ import { cookies } from 'next/headers'
  */
 export async function setLocalePreference(locale: string) {
   // Validate locale is one of the supported values
-  const supportedLocales = ['en', 'so']
+  const supportedLocales = ["en", "so"];
   if (!supportedLocales.includes(locale)) {
-    return { error: 'Invalid locale' }
+    return { error: "Invalid locale" };
   }
 
-  const cookieStore = await cookies()
-  const maxAge = 365 * 24 * 60 * 60 // 1 year
+  const cookieStore = await cookies();
+  const maxAge = 365 * 24 * 60 * 60; // 1 year
 
-  cookieStore.set('NEXT_LOCALE', locale, {
+  cookieStore.set("NEXT_LOCALE", locale, {
     httpOnly: true,
     secure: true,
-    sameSite: 'lax',
-    path: '/',
+    sameSite: "lax",
+    path: "/",
     maxAge,
-  })
+  });
 
-  return { success: true }
+  return { success: true };
 }

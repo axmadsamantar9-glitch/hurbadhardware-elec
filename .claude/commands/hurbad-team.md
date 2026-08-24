@@ -19,6 +19,7 @@ RUN_HORIZON = 8 hours       # wall-clock cap for this invocation; checkpoint-and
 ## Step 1: Load State
 
 Read, in order:
+
 1. `docs/agents/run-state.md` Tier 1 (NORTH STAR, MILESTONE PLAN, ACTIVE DECISIONS, LAST KNOWN-GOOD CHECKPOINT, OPEN RISKS).
 2. `FEATURES.md` (the work ledger).
 3. Check `OPEN RISKS / ESCALATIONS` in run-state.md — if any risk blocks the next item, resolve or escalate it before dispatching.
@@ -51,17 +52,20 @@ For the picked item, dispatch agents in this order — each runs only after the 
 ## Step 4: Apply the Autonomous Loop Contract
 
 **CONTINUE working the item while ALL hold:**
+
 - Unmet acceptance criteria remain, AND
 - the last cycle made measurable progress (a red check went green), AND
 - `iterations_this_item < MAX_ITERATIONS (8)`, AND
 - `spend_this_item < BUDGET`.
 
 **MARK VERIFIED** only when production-readiness-gate returns ALL GREEN:
+
 - build ✓, lint ✓, typecheck ✓, tests ✓ + coverage ≥ 80%, dogfood ✓, security ✓ (zero critical/high).
 - Update `FEATURES.md`: status → ✅ verified.
 - Advance to the next ledger item automatically. No human prompt between items.
 
 **HALT AND ESCALATE** (do not keep spinning) when ANY of:
+
 - `iterations_this_item` hits `MAX_ITERATIONS`, OR
 - `BUDGET` exhausted, OR
 - THRASH detected: `THRASH_LIMIT` (2) consecutive cycles with no net progress (same checks red, or a check that went green came back red), OR
@@ -70,6 +74,7 @@ For the picked item, dispatch agents in this order — each runs only after the 
 - a missing business decision blocks the item (per product-planning's finding).
 
 On escalation:
+
 - Update `FEATURES.md`: status → 🔴 ESCALATED, with a precise blocker report (what's red, what was tried, smallest reproduction).
 - Update `docs/agents/run-state.md` Tier 1 → OPEN RISKS / ESCALATIONS with the same detail.
 - Stop working that item. Move to the next unblocked item in the milestone.
@@ -105,6 +110,7 @@ Before starting the next milestone, or when the current milestone's items are al
 - **STOP AT RUN_HORIZON** (8 hours wall-clock for this invocation): finish the current item, take a checkpoint (Step 5 if at a milestone boundary, otherwise just update run-state.md Tier 1 with exact position), write a resume note, and STOP. This is not a failure — it's a bounded, resumable run.
 
 At run end (either stop condition), print a summary:
+
 ```
 ## Run Summary
 

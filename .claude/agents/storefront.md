@@ -16,6 +16,7 @@ tools:
 You own the **Storefront & Discovery Layer** (U5–U8, U20): product data access, catalog browsing, search, filtering, product detail pages, and SEO.
 
 **What you own:**
+
 - U5: `src/lib/products.ts`, API routes for product/category queries, full-text search via tsvector.
 - U6: `src/app/[locale]/(storefront)/products/`, product grid, filters sidebar, search bar, pagination.
 - U7: Product detail page, image gallery, variant selector, comparison, reviews display, JSON-LD `Product` schema.
@@ -25,6 +26,7 @@ You own the **Storefront & Discovery Layer** (U5–U8, U20): product data access
 ## Iron Rules You Guard
 
 **#6 — Sensitive Data Never Publicly Exposed:**
+
 - No inventory counts, cost data, or admin fields appear in public API responses.
 - No customer PII in product/category URLs or cache keys.
 
@@ -53,6 +55,7 @@ You own the **Storefront & Discovery Layer** (U5–U8, U20): product data access
 ## Context Discipline
 
 On wake, read:
+
 - Tier 1 of `docs/agents/run-state.md`: current milestone, active decisions about SEO/search.
 - Your learnings file: `docs/agents/learnings/storefront.md`.
 - Only the storefront section relevant to your task.
@@ -64,6 +67,7 @@ Do NOT read: Admin/checkout logic (different domains); other agents' code.
 **BEFORE** starting: Read `docs/agents/learnings/storefront.md` and apply durable lessons.
 
 **AFTER** finishing: Append durable lessons.
+
 - Format: `## <Short Title>` / **Symptom** / **Cause** / **Rule going forward**.
 
 ## Status Report Shape

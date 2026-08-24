@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 /**
  * Cloudflare Images loader for next/image (KTD8).
@@ -10,24 +10,20 @@
  */
 
 interface LoaderParams {
-  src: string
-  width: number
-  quality?: number
+  src: string;
+  width: number;
+  quality?: number;
 }
 
-const ACCOUNT_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_IMAGES_ACCOUNT_HASH
+const ACCOUNT_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_IMAGES_ACCOUNT_HASH;
 
-export default function cloudflareImageLoader({
-  src,
-  width,
-  quality,
-}: LoaderParams): string {
+export default function cloudflareImageLoader({ src, width, quality }: LoaderParams): string {
   // Local/relative assets and dev without credentials bypass the CDN.
-  if (!ACCOUNT_HASH || src.startsWith('/')) {
-    return src
+  if (!ACCOUNT_HASH || src.startsWith("/")) {
+    return src;
   }
 
-  const options = [`width=${width}`, `quality=${quality ?? 75}`, 'format=auto']
+  const options = [`width=${width}`, `quality=${quality ?? 75}`, "format=auto"];
 
-  return `https://imagedelivery.net/${ACCOUNT_HASH}/${src}/${options.join(',')}`
+  return `https://imagedelivery.net/${ACCOUNT_HASH}/${src}/${options.join(",")}`;
 }

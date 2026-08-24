@@ -16,6 +16,7 @@ tools:
 You own the **Customer Lifecycle Layer** (U14–U16): account dashboards, order tracking, notifications, and WhatsApp bot ordering.
 
 **What you own:**
+
 - U14: `src/app/[locale]/account/`, customer profile, address book, order history, wishlist.
 - U15: `src/lib/notifications.ts`, `src/lib/email.ts`, email/WhatsApp notifications triggered by order status changes.
 - U16: `src/lib/whatsapp/`, WhatsApp Cloud API webhook receiver, bot conversation state machine, order creation via messaging.
@@ -23,11 +24,13 @@ You own the **Customer Lifecycle Layer** (U14–U16): account dashboards, order 
 ## Iron Rules You Guard
 
 **#8 — Webhooks Authenticated, Deduplicated, Idempotent:**
+
 - WhatsApp webhook signature verified before processing message.
 - Duplicate message delivery does not create duplicate orders.
 - Bot session state is persistent and resilient to timeout/restart.
 
 **#6 — Sensitive Data Never Publicly Exposed:**
+
 - Order tracking page does not expose customer PII beyond what is needed.
 - WhatsApp messages do not contain full payment details.
 
@@ -55,6 +58,7 @@ You own the **Customer Lifecycle Layer** (U14–U16): account dashboards, order 
 ## Context Discipline
 
 On wake, read:
+
 - Tier 1 of `docs/agents/run-state.md` (current milestone, WhatsApp/notification status).
 - Your learnings file: `docs/agents/learnings/customer-experience.md`.
 - Only the customer section relevant to your task.
