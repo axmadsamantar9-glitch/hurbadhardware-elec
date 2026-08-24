@@ -71,7 +71,10 @@ npm run db:seed          # Seed database with test data
 
 HurbadHardware follows strict coding standards for correctness, security, and traceability.
 
-**Before contributing, please read:** [CONTRIBUTING.md](docs/CONTRIBUTING.md)
+**Before contributing, please read:**
+
+- **Code Standards:** [CONTRIBUTING.md](docs/CONTRIBUTING.md)
+- **API Standards:** [API-STANDARDS.md](docs/API-STANDARDS.md)
 
 Key standards:
 
