@@ -4,6 +4,53 @@ Complete visual representation of all 22 models and their relationships.
 
 ---
 
+## Mermaid ER Diagram
+
+```mermaid
+erDiagram
+    USER ||--o{ ACCOUNT : "has (CASCADE)"
+    USER ||--o{ SESSION : "has (CASCADE)"
+    USER ||--o{ ADDRESS : "has (CASCADE)"
+    USER ||--o{ REVIEW : "has (CASCADE)"
+    USER ||--o{ CART : "has (CASCADE)"
+    USER ||--o{ WISHLIST : "has (CASCADE)"
+    USER ||--o{ ORDER : "places (SETNULL)"
+    USER ||--o{ WHATSAPP_SESSION : "initiates (SETNULL)"
+    USER ||--o{ INVENTORY_LOG : "logs (SETNULL)"
+    USER ||--o{ AUDIT_LOG : "acts on (SETNULL)"
+
+    CATEGORY ||--o{ CATEGORY : "hierarchy (SETNULL)"
+    CATEGORY ||--o{ PRODUCT : "contains (CASCADE)"
+
+    PRODUCT ||--o{ PRODUCT_IMAGE : "has (CASCADE)"
+    PRODUCT ||--o{ PRODUCT_SPEC : "has (CASCADE)"
+    PRODUCT ||--o{ PRODUCT_VARIANT : "has (CASCADE)"
+    PRODUCT ||--o{ REVIEW : "reviewed by (CASCADE)"
+    PRODUCT ||--o{ CART_ITEM : "in cart (CASCADE)"
+    PRODUCT ||--o{ WISHLIST : "wishlisted by (CASCADE)"
+    PRODUCT ||--o{ ORDER_ITEM : "in order (SETNULL)"
+    PRODUCT ||--o{ INVENTORY_LOG : "tracked by (CASCADE)"
+
+    PRODUCT_VARIANT ||--o{ CART_ITEM : "variant of (SETNULL)"
+    PRODUCT_VARIANT ||--o{ ORDER_ITEM : "variant of (SETNULL)"
+    PRODUCT_VARIANT ||--o{ INVENTORY_LOG : "tracks (SETNULL)"
+
+    CART ||--o{ CART_ITEM : "contains (CASCADE)"
+
+    ADDRESS ||--o{ ORDER : "ships to (SETNULL)"
+
+    COUPON ||--o{ ORDER : "applied to (SETNULL)"
+
+    ORDER ||--o{ ORDER_ITEM : "contains (CASCADE)"
+    ORDER ||--o{ PAYMENT : "has (CASCADE)"
+    ORDER ||--o{ WHATSAPP_SESSION : "initiated from (SETNULL)"
+
+    VERIFICATION_TOKEN ||--|| VERIFICATION_TOKEN : "auth token"
+    FX_RATE ||--|| FX_RATE : "exchange rate"
+```
+
+---
+
 ## Cascade & Delete Behavior
 
 | From     | To              | Rule    |
