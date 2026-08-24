@@ -438,3 +438,27 @@ No blockers remain. U4 is production-ready and has been marked verified in FEATU
 **Commit:** 3488ca3 (feat(u5): Product Data Layer - verified and production-ready)
 
 No blockers remain. U5 is production-ready. M2 (Product Catalog & Discovery) milestone advances with U5 complete; U6 is next unblocked item.
+
+## HUB-20: UI Design System (2026-08-24)
+
+### All Gates Passed — Item Verified; mixed-scope dirty working tree required isolation
+
+**Verification Date:** 2026-08-24
+**Item:** HUB-20 (HUR-37) — Design tokens (`src/app/globals.css` @theme) + Button/Input/Card primitives (`src/components/ui/`) + `cn.ts` utility.
+
+**Gate Results:** Build ✓, Lint ✓ (0 errors, 3 pre-existing warnings unrelated to this ticket), Typecheck ✓, Tests 385/385 + coverage 88.68%/79.14%/89.58%/88.78% (independently reproduced, matched qa-test's self-report exactly), Security ✓ (independently re-inspected component source — zero DOM-injection/eval/network/secret risk), Scope Integrity ✓ (diff footprint is exactly globals.css + components/ui/** + cn.ts, zero touches to checkout/cart/admin/payment).
+
+**Dogfood — mixed result requiring root-cause isolation:** `dogfood-u3.ts` failed (`GET /auth/signin` → 307 not 200). Rather than assume HUB-20 broke it, ran `git stash -u` (removing all uncommitted changes, including HUB-20's) and reran against bare HEAD (commit 39bf020) — identical failure reproduced. This proves the failure is a pre-existing stale script (written before U4 added locale-prefix routing) and NOT a regression from HUB-20. `dogfood-u4.ts` hit the known `spawn npm ENOENT` env issue (documented in earlier learnings); worked around via manual curl against the already-running dev server, all 4 flows matched prior verified U4 behavior.
+
+**Scope contamination in working tree (not a HUB-20 defect, but worth flagging):** At verification time the working tree contained HUB-20's files _plus_ unrelated uncommitted changes from a separate in-flight workstream (`prisma/schema.prisma` User.deletedAt soft-delete column+index, `src/lib/user-deletion.ts`, `src/auth.ts` soft-delete check, `src/lib/logger.ts`, rate-limit test additions, privacy/schema doc updates) — this is a HUR-172 privacy-guidelines follow-up (implementing the "known limitation" it had documented), not part of HUB-20. Confirmed by reading `git diff --stat` per-file and cross-referencing file purpose/content, not just trusting the ticket's file list.
+
+**Rule going forward:** When the working tree has uncommitted changes from multiple concurrent workstreams, do not assume `git diff --stat` (full working tree) equals "this ticket's diff." Cross-reference each changed file's content/purpose against the ticket's stated scope before applying the "schema/scope must be untouched" gates — a schema change elsewhere in a dirty tree does not automatically fail a frontend-only ticket's schema gate, but it MUST be called out so the two workstreams get committed separately (avoid accidentally bundling unrelated work into one commit). When a dogfood script fails, always verify via `git stash -u` + rerun against clean HEAD before concluding the item under test caused a regression — this is the only reliable way to attribute a failure correctly in a dirty multi-workstream tree.
+
+---
+
+## Summary
+
+**Item:** HUB-20 (HUR-37) — UI Design System
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-24
+**All 8 Production-Readiness Gates:** GREEN (including scope-integrity and schema-untouched hard gates, scoped correctly to HUB-20's actual file footprint)

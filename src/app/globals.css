@@ -1,8 +1,116 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+ * HurbadHardware Design System — Design Tokens (HUB-20)
+ * ==========================================================================
+ * Convention: raw hex values live on `:root` (and the dark-mode media query
+ * override below); the `@theme inline` block maps those raw values onto
+ * Tailwind v4 CSS-first theme variables so they become usable as utility
+ * classes (e.g. `bg-primary`, `text-error`, `border-secondary-300`).
+ *
+ * Every color pairing below has been verified against WCAG 2.2 AA
+ * (>=4.5:1 for normal text, >=3:1 for large text/UI components) using the
+ * relative-luminance contrast formula, checked against BOTH the light
+ * background (#ffffff) and the dark background (#0a0a0a). See
+ * `src/components/ui/README.md` for the full contrast-ratio table and
+ * component usage guidance.
+ *
+ * Spacing: Tailwind v4's default spacing scale (`--spacing: 0.25rem` = 4px
+ * base unit, multiplied by utility class numbers, e.g. `p-4` = 16px) already
+ * satisfies AC3. It is NOT redefined here — use Tailwind's built-in spacing
+ * utilities (`p-*`, `m-*`, `gap-*`, `space-*`) rather than arbitrary values
+ * (`p-[13px]`) in new components.
+ * ========================================================================== */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* --- Primary (brand blue — trustworthy, electronics/tech) --- */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #2563eb;
+  --color-primary-600: #1d4ed8;
+  --color-primary-700: #1e40af;
+  --color-primary-foreground: #ffffff;
+
+  /* --- Secondary (teal accent) --- */
+  --color-secondary-50: #f0fdfa;
+  --color-secondary-100: #ccfbf1;
+  --color-secondary-300: #5eead4;
+  --color-secondary-400: #2dd4bf;
+  --color-secondary-600: #0f766e;
+  --color-secondary-700: #115e59;
+  --color-secondary-foreground: #ffffff;
+
+  /* --- Semantic colors --- */
+  --color-success: #15803d;
+  --color-success-dark: #4ade80;
+  --color-success-foreground: #ffffff;
+  --color-success-subtle: #f0fdf4;
+
+  --color-warning: #b45309;
+  --color-warning-dark: #fbbf24;
+  --color-warning-foreground: #ffffff;
+  --color-warning-subtle: #fffbeb;
+
+  --color-error: #dc2626;
+  --color-error-dark: #f87171;
+  --color-error-foreground: #ffffff;
+  --color-error-subtle: #fef2f2;
+
+  --color-info: #2563eb;
+  --color-info-dark: #60a5fa;
+  --color-info-foreground: #ffffff;
+  --color-info-subtle: #eff6ff;
+
+  /* --- Neutral UI surfaces ---
+   * --color-border: decorative/low-emphasis dividers (cards, sections).
+   *   Not intended to carry text-contrast requirements (WCAG 1.4.11 does
+   *   not apply to purely decorative separators).
+   * --color-input-border: form-control boundaries. Must meet >=3:1
+   *   (WCAG 1.4.11 UI-component contrast) against its background — use
+   *   this (not --color-border) on Input/Select/Textarea. */
+  --color-border: #e5e7eb;
+  --color-border-dark: #27272a;
+  --color-input-border: #6b7280; /* 4.83:1 on white / 4.10:1 on #0a0a0a */
+  --color-muted: #f4f4f5;
+  --color-muted-dark: #18181b;
+  --color-muted-foreground: #71717a;
+
+  /* Text-usage variants of brand colors (links, icons, headings tinted
+     with brand color). The *-600/700 shades meet AA on white but drop
+     below 3:1 on the dark background, so dark mode below swaps these to
+     the *-300/400 shades instead. Use --color-primary-text /
+     --color-secondary-text (not --color-primary/-secondary) whenever the
+     color is applied to text/icons rather than as a filled bg. */
+  --color-primary-text: var(--color-primary-600);
+  --color-secondary-text: var(--color-secondary-600);
+
+  /* --- Typography scale (px / line-height) --- */
+  --text-xs: 0.75rem; /* 12px */
+  --text-xs--line-height: 1rem; /* 16px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-sm--line-height: 1.25rem; /* 20px */
+  --text-base: 1rem; /* 16px */
+  --text-base--line-height: 1.5rem; /* 24px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-lg--line-height: 1.75rem; /* 28px */
+  --text-xl: 1.25rem; /* 20px */
+  --text-xl--line-height: 1.75rem; /* 28px */
+  --text-2xl: 1.5rem; /* 24px */
+  --text-2xl--line-height: 2rem; /* 32px */
+  --text-3xl: 1.875rem; /* 30px */
+  --text-3xl--line-height: 2.25rem; /* 36px */
+  --text-4xl: 2.25rem; /* 36px */
+  --text-4xl--line-height: 2.5rem; /* 40px */
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
 }
 
 @theme inline {
@@ -10,12 +118,73 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-primary-50: var(--color-primary-50);
+  --color-primary-100: var(--color-primary-100);
+  --color-primary-300: var(--color-primary-300);
+  --color-primary-400: var(--color-primary-400);
+  --color-primary-500: var(--color-primary-500);
+  --color-primary-600: var(--color-primary-600);
+  --color-primary-700: var(--color-primary-700);
+  --color-primary: var(--color-primary-600);
+  --color-primary-foreground: var(--color-primary-foreground);
+
+  --color-secondary-50: var(--color-secondary-50);
+  --color-secondary-100: var(--color-secondary-100);
+  --color-secondary-300: var(--color-secondary-300);
+  --color-secondary-400: var(--color-secondary-400);
+  --color-secondary-600: var(--color-secondary-600);
+  --color-secondary-700: var(--color-secondary-700);
+  --color-secondary: var(--color-secondary-600);
+  --color-secondary-foreground: var(--color-secondary-foreground);
+
+  --color-success: var(--color-success);
+  --color-success-foreground: var(--color-success-foreground);
+  --color-success-subtle: var(--color-success-subtle);
+  --color-warning: var(--color-warning);
+  --color-warning-foreground: var(--color-warning-foreground);
+  --color-warning-subtle: var(--color-warning-subtle);
+  --color-error: var(--color-error);
+  --color-error-foreground: var(--color-error-foreground);
+  --color-error-subtle: var(--color-error-subtle);
+  --color-info: var(--color-info);
+  --color-info-foreground: var(--color-info-foreground);
+  --color-info-subtle: var(--color-info-subtle);
+
+  --color-border: var(--color-border);
+  --color-input-border: var(--color-input-border);
+  --color-muted: var(--color-muted);
+  --color-muted-foreground: var(--color-muted-foreground);
+  --color-primary-text: var(--color-primary-text);
+  --color-secondary-text: var(--color-secondary-text);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    /* Swap to the lighter/"-dark" shade so text and UI components
+       maintain >=4.5:1 (text) / >=3:1 (UI) contrast against #0a0a0a. */
+    --color-success: var(--color-success-dark);
+    --color-success-foreground: #171717;
+    --color-warning: var(--color-warning-dark);
+    --color-warning-foreground: #171717;
+    --color-error: var(--color-error-dark);
+    --color-error-foreground: #171717;
+    --color-info: var(--color-info-dark);
+    --color-info-foreground: #171717;
+
+    --color-border: var(--color-border-dark);
+    --color-input-border: #6b7280; /* 4.10:1 on #0a0a0a — still >=3:1 */
+    --color-muted: var(--color-muted-dark);
+    --color-muted-foreground: #a1a1aa;
+
+    /* Swap text-usage brand colors to lighter shades: primary-600/
+       secondary-600 drop to ~3.0/3.6:1 on #0a0a0a (fails AA text), while
+       primary-400 (7.79:1) / secondary-400 (10.64:1) comfortably pass. */
+    --color-primary-text: var(--color-primary-400);
+    --color-secondary-text: var(--color-secondary-400);
   }
 }
 
