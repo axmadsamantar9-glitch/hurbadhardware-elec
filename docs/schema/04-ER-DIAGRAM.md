@@ -79,6 +79,7 @@ erDiagram
 ### Lookup Performance
 
 - USER.role
+- USER.deletedAt (soft-delete filtering; see docs/guidelines/privacy-and-data.md AC11)
 - CATEGORY.parentId, isActive
 - PRODUCT.categoryId, isActive, isFeatured
 - REVIEW.productId

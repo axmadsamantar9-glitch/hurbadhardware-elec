@@ -18,6 +18,9 @@ import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { getCorrelationId } from "@/lib/request-context";
 import { isValidEmail, isStrongPassword, hashPassword, verifyPassword } from "@/lib/auth-utils";
+import { rateLimiter, getClientIP } from "@/lib/middleware/rate-limit";
+import { getRateLimitConfig } from "@/lib/config/rate-limits";
+import { isSoftDeleted } from "@/lib/user-deletion";
 import type { User as AuthJSUser } from "next-auth";
 
 declare module "next-auth" {
@@ -52,7 +55,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
         action: { label: "Action", type: "hidden" }, // 'signin' or 'register'
       },
-      async authorize(credentials): Promise<AuthJSUser | null> {
+      async authorize(credentials, request): Promise<AuthJSUser | null> {
         const correlationId = await getCorrelationId();
 
         if (!credentials?.email || !credentials?.password) {
@@ -66,6 +69,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = String(credentials.email).toLowerCase();
         const password = String(credentials.password);
         const action = String(credentials.action || "signin");
+
+        // Rate limit login attempts per IP+account (docs/guidelines/rate-limiting.md
+        // AC1/AC2: 5 attempts/min per IP+account). Applied before any credential
+        // validation so brute-force/credential-stuffing attempts fail closed.
+        // Uses the same generic error as invalid credentials so the response
+        // does not leak "rate limited" vs "wrong password" to an attacker.
+        const clientIP = getClientIP(request);
+        const rateLimitKey = `${clientIP}:${email}`;
+        const { threshold } = getRateLimitConfig("login");
+        const rateLimitResult = rateLimiter.check(rateLimitKey, threshold);
+        if (!rateLimitResult.allowed) {
+          logger.warn("Auth: rate limit exceeded", {
+            correlationId,
+            action,
+            email: email.substring(0, 3) + "***",
+          });
+          throw new Error("Invalid email or password");
+        }
 
         // --- Register flow ---
         if (action === "register") {
@@ -137,6 +158,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // --- Sign-in flow ---
         try {
           const user = await db.user.findUnique({ where: { email } });
+
+          // Soft-deleted users (docs/guidelines/privacy-and-data.md AC11) have
+          // their email nulled on deletion, so this lookup already can't match
+          // them in the common case; this check is defense-in-depth for any
+          // future path where a deleted row's email might still be set (e.g.
+          // mid-migration, or before the 30-day hard-delete grace period).
+          // Same generic error as bad credentials — no "account deleted"
+          // oracle for an attacker probing emails.
+          if (isSoftDeleted(user)) {
+            logger.info("Sign-in: user is soft-deleted", {
+              correlationId,
+              userId: user?.id,
+              email: email.substring(0, 3) + "***",
+            });
+            throw new Error("Invalid email or password");
+          }
 
           if (!user || !user.passwordHash) {
             logger.info("Sign-in: user not found or no password", {

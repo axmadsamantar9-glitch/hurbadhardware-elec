@@ -186,6 +186,73 @@ describe("Rate Limiting Middleware", () => {
     });
   });
 
+  describe("Login rate-limiting (as wired into src/auth.ts authorize())", () => {
+    // src/auth.ts's Credentials authorize() computes the rate-limit key as
+    // `${clientIP}:${email}` and checks it against getRateLimitConfig("login")
+    // threshold *before* validating credentials. These tests exercise that
+    // exact key shape/threshold against the shared rateLimiter singleton to
+    // guard against regressions, since auth.ts itself can't be imported in
+    // the Node test environment (see docs/agents/learnings/qa-test.md).
+    it("allows up to the configured login threshold (5) attempts per IP+account", () => {
+      const { threshold } = getRateLimitConfig("login");
+      expect(threshold).toBe(5);
+
+      const ip = "203.0.113.9";
+      const email = "victim@example.com";
+      const key = `${ip}:${email}`;
+
+      for (let i = 0; i < threshold; i++) {
+        expect(rateLimiter.check(key, threshold).allowed).toBe(true);
+      }
+    });
+
+    it("rejects the 6th attempt within the window regardless of whether credentials would be valid", () => {
+      const { threshold } = getRateLimitConfig("login");
+      const ip = "203.0.113.9";
+      const email = "victim@example.com";
+      const key = `${ip}:${email}`;
+
+      for (let i = 0; i < threshold; i++) {
+        rateLimiter.check(key, threshold);
+      }
+
+      // The 6th attempt is denied by the bucket itself -- auth.ts throws
+      // "Invalid email or password" here without ever touching the DB or
+      // bcrypt, so this is enforced independent of the submitted password.
+      const sixthAttempt = rateLimiter.check(key, threshold);
+      expect(sixthAttempt.allowed).toBe(false);
+      expect(sixthAttempt.retryAfter).toBeGreaterThan(0);
+    });
+
+    it("does not rate-limit a different account from the same IP (keyed by IP+account, not IP alone)", () => {
+      const { threshold } = getRateLimitConfig("login");
+      const ip = "203.0.113.9";
+
+      const key1 = `${ip}:attacker-target-1@example.com`;
+      for (let i = 0; i < threshold; i++) {
+        rateLimiter.check(key1, threshold);
+      }
+      expect(rateLimiter.check(key1, threshold).allowed).toBe(false);
+
+      const key2 = `${ip}:attacker-target-2@example.com`;
+      expect(rateLimiter.check(key2, threshold).allowed).toBe(true);
+    });
+
+    it("does not rate-limit the same account from a different IP (keyed by IP+account, not account alone)", () => {
+      const { threshold } = getRateLimitConfig("login");
+      const email = "shared-account@example.com";
+
+      const key1 = `203.0.113.9:${email}`;
+      for (let i = 0; i < threshold; i++) {
+        rateLimiter.check(key1, threshold);
+      }
+      expect(rateLimiter.check(key1, threshold).allowed).toBe(false);
+
+      const key2 = `198.51.100.20:${email}`;
+      expect(rateLimiter.check(key2, threshold).allowed).toBe(true);
+    });
+  });
+
   describe("Token refill edge cases", () => {
     it("should handle rapid-fire requests", () => {
       const threshold = 5;

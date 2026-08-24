@@ -86,7 +86,7 @@ function redact(value: unknown): unknown {
 function write(level: LogLevel, message: string, context: LogContext = {}) {
   const line = {
     level,
-    message: scrubString(message),
+    message: scrubString(redactPII(message) as string),
     timestamp: new Date().toISOString(),
     ...(redactPII(redact(context)) as Record<string, unknown>),
   };

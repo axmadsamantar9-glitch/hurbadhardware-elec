@@ -131,6 +131,7 @@ model User {
   locale        Locale    @default(en)
   googleId      String?   @unique @map("google_id")
   createdAt     DateTime  @default(now()) @map("created_at")
+  deletedAt     DateTime? @map("deleted_at")
 
   accounts         Account[]
   sessions         Session[]
@@ -144,6 +145,7 @@ model User {
   auditLogs        AuditLog[]
 
   @@index([role])
+  @@index([deletedAt])
   @@map("users")
 }
 

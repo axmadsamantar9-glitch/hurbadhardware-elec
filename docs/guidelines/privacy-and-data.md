@@ -123,6 +123,14 @@ HurbadHardware collects and stores the following categories of data:
 3. Set User.deletedAt = NOW()
 4. Orders and Payments are NOT deleted; customer data within them is anonymized
 5. Revoke all active session tokens
+   > **Known limitation:** `softDeleteUser()` currently only deletes DB-tracked
+   > `sessions` rows (OAuth account-linking bookkeeping). Because this app runs
+   > `session.strategy: "jwt"`, that has no effect on already-issued JWT
+   > session cookies — a deleted user's active session is not immediately
+   > terminated and instead expires naturally within the JWT `maxAge` window.
+   > True immediate revocation requires a DB re-check in the NextAuth `jwt`/
+   > `session` callback, or switching to `session.strategy: "database"`. See
+   > `src/lib/user-deletion.ts`.
 6. Retain User row for 30 days (grace period for recovery)
 
 ### Hard-Delete (After Retention Window)

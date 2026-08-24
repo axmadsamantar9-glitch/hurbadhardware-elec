@@ -1,5 +1,13 @@
 # Production-Readiness Gate — Learnings
 
+## HUR-172: Rate Limits & Privacy (schema extension) (2026-08-24)
+
+### Independently re-verify live-DB claims, don't trust prior self-reports
+
+**Symptom risk:** A builder agent applying a Prisma migration to a live Supabase DB reported catching and avoiding a dangerous auto-generated diff that would have dropped a production full-text-search index. Trusting that self-report alone, without independently confirming, would leave the gate vulnerable to an inaccurate or incomplete fix claim slipping through as "verified."
+
+**Rule going forward:** When a migration or schema change touches a live database, query the database directly (e.g. `pg_indexes`, `information_schema`) to independently confirm the claimed state — do not rely solely on a prior agent's narrative of what it did. On Supabase-style multi-schema databases, schema-qualify these queries (`public.users` vs `auth.users`) to avoid false positives/negatives from same-named columns or tables in a different schema.
+
 ## HUB-12: Development Standards (2026-08-24)
 
 ### All Six Gates Passed — Item Verified
@@ -438,6 +446,39 @@ No blockers remain. U4 is production-ready and has been marked verified in FEATU
 **Commit:** 3488ca3 (feat(u5): Product Data Layer - verified and production-ready)
 
 No blockers remain. U5 is production-ready. M2 (Product Catalog & Discovery) milestone advances with U5 complete; U6 is next unblocked item.
+
+## HUR-172: Rate-Limiting & Privacy Guidelines (2026-08-24)
+
+### All Gates Passed — Item Verified
+
+**Verification Date:** 2026-08-24
+**Item:** HUR-172 — Coding Guidelines: rate-limiting + privacy/data-minimization (24 ACs)
+
+**Gate Results:**
+
+1. **Build** ✅ — `npm run build` exits 0 (Next.js 16.3.1, Turbopack, 2.8s compile + 6.7s typecheck pass)
+2. **Lint** ✅ — `npm run lint` exits 0 (0 errors, 3 non-blocking unused-var warnings in test files/middleware)
+3. **Typecheck** ✅ — `npm run typecheck` exits 0
+4. **Tests** ✅ — 332/332 passing, 21 test files. Coverage: Stmts 85.2%, Branch 76.15%, Funcs 86.66%, Lines 85.34% (all ≥ 80%/70% thresholds)
+5. **Dogfood** ✅ — `docs/guidelines/rate-limiting.md` and `docs/guidelines/privacy-and-data.md` present and discoverable. Login rate-limit is functionally live: `src/auth.ts` `authorize()` calls `rateLimiter.check()` keyed by `${clientIP}:${email}` BEFORE any credential validation (fail-closed), using the same generic "Invalid email or password" error for both wrong-password and rate-limited cases (no timing/enumeration oracle). Directly verified by `src/__tests__/rate-limit.test.ts` "Login rate-limiting (as wired into src/auth.ts authorize())" describe block (4 tests, all passing) which exercises the exact key composition and threshold (5/min) used in production code.
+6. **Security** ✅ — Both prior HIGH findings confirmed fixed with real test coverage: (a) logger message-string PII leak — `src/lib/logger.test.ts` has 10 passing tests including message-string redaction of PII and secret-env values; (b) login endpoint missing rate-limit enforcement — now wired as above. `docs/agents/learnings/security-reviewer.md` documents both root causes and confirms fix pattern. Two lower-severity non-blocking follow-ups remain documented (spoofable X-Forwarded-For, timing side-channel) — correctly not treated as blockers.
+7. **Schema integrity** ✅ — `git diff --stat 45a9182..HEAD -- prisma/schema.prisma` and uncommitted `git diff --stat -- prisma/schema.prisma` both empty (zero changes). `docs/schema/*.md` (HUB-18/HUR-171 deliverables) untouched — not present in the ticket's changed-files list.
+8. **Secrets scan** ✅ — grep of full ticket diff for API-key/secret/password patterns found only redaction-guideline prose and empty `.env.example` var names (`RESEND_API_KEY=`, `NEXTAUTH_SECRET=`) — no hardcoded credentials.
+
+**Housekeeping:** Found and removed a stray untracked `nul` file at repo root (Windows artifact from a prior `> nul` shell redirect during a previous coverage run) — not part of the diff, did not block any gate, but removed for cleanliness before final verification run.
+
+### Rule Going Forward
+
+When a HIGH security finding requires a code fix (e.g., adding rate-limit enforcement to an auth flow), verify the fix is proven by a test that mirrors the EXACT key composition and call site used in production code (not just "rate limiter works in isolation"). A generic rate-limiter unit test does not prove the specific endpoint is protected — look for a describe block that explicitly says "as wired into <file>" or equivalent.
+
+---
+
+## Summary
+
+**Item:** HUR-172 — Coding Guidelines: rate-limiting + privacy/data-minimization
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-24
+**All 7 Production-Readiness Gates:** GREEN (including schema-integrity hard gate)
 
 ## HUB-20: UI Design System (2026-08-24)
 

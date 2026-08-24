@@ -97,6 +97,20 @@ describe("logger", () => {
     }
   });
 
+  it("redacts PII embedded directly in the message string, not just in context", () => {
+    logger.info("Registered user@example.com");
+    const line = lastLine(logSpy);
+    expect(line.message).not.toContain("user@example.com");
+    expect(line.message).toContain("[email]");
+  });
+
+  it("redacts a phone number embedded in the message string", () => {
+    logger.info("Contact confirmed at +15551234567");
+    const line = lastLine(logSpy);
+    expect(line.message).not.toContain("+15551234567");
+    expect(line.message).toContain("[phone]");
+  });
+
   it("does not redact values that merely resemble but do not equal a live secret", () => {
     process.env[SECRET_ENV_KEY] = SECRET_VALUE;
     logger.info("unrelated message with similar-looking text sk_live_super_secret");

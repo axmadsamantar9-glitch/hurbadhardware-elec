@@ -24,6 +24,7 @@ Complete documentation of every model in the HurbadHardware schema. Organized by
 | locale        | Locale enum | No       | en       | en (English) or so (Somali)            |
 | googleId      | String      | Yes      | —        | Google OAuth sub; unique               |
 | createdAt     | DateTime    | No       | now()    | Account creation timestamp             |
+| deletedAt     | DateTime    | Yes      | —        | Soft-delete timestamp (null = active)  |
 
 **Primary Key:** id
 
@@ -31,13 +32,14 @@ Complete documentation of every model in the HurbadHardware schema. Organized by
 
 **Relationships:** 1:M to Account, Session, Address, Review, Cart, Wishlist, Order, WhatsappSession, InventoryLog, AuditLog
 
-**Indexes:** `role` (filter by admin vs customer)
+**Indexes:** `role` (filter by admin vs customer), `deletedAt` (filter active vs soft-deleted)
 
 **Notes:**
 
 - Email and phone are both optional and individually unique
 - Enables phone-only registration (common in East Africa)
 - locale determines UI language
+- `deletedAt` implements the soft-delete workflow in docs/guidelines/privacy-and-data.md AC10/AC11/AC14: on self-service or admin-initiated account deletion, `email`/`phone`/`name` are nulled and `deletedAt` is set to the deletion timestamp; the row is hard-deleted after a 30-day grace period. Active-user queries should filter `WHERE deletedAt IS NULL` — see `ACTIVE_USER_FILTER` in `src/lib/user-deletion.ts`.
 
 ---
 

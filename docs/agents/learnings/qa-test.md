@@ -443,6 +443,40 @@ Total: 192 tests written, 243 total tests now passing
 ✅ Exits 0 on all flows passing, non-zero on failure
 ✅ Clear [dogfood-u4] logging for CI visibility
 
+---
+
+## HUR-172: Resuming After Interrupted Security-Fix Session (2026-08-24)
+
+**Symptom:** A prior agent run reported "All 332 tests pass" for 2 HIGH security fixes (logger PII-in-message redaction, login rate-limiting in `src/auth.ts` authorize()) but was interrupted by an API error before running lint/typecheck. Handed off mid-task with unverified final gate.
+
+**Cause:** Long-running agent sessions can be cut off by transient API errors after the "risky" work (code edits) is done but before the "boring" verification step (lint/typecheck) runs. Status claims made just before an interruption are unverified until independently re-checked.
+
+**Resolution:** On resume, re-read both target files directly rather than trusting the prior "done" claim. Confirmed via `git status`/`git diff`: `src/lib/logger.ts` message already piped through both `redactPII()` and `scrubString()` (line: `message: scrubString(redactPII(message) as string)`); `src/auth.ts` authorize() already called `rateLimiter.check(rateLimitKey, threshold)` keyed by `${clientIP}:${email}` before any credential validation, throwing the same generic "Invalid email or password" error used for bad credentials (no rate-limit-vs-bad-password oracle). Tests for both already existed (`src/lib/logger.test.ts`: "redacts PII embedded directly in the message string"; `src/__tests__/rate-limit.test.ts`: new "Login rate-limiting (as wired into src/auth.ts authorize())" describe block simulating the exact `IP:email` key against the shared `rateLimiter` singleton, since `auth.ts` itself can't be imported in the Node test env per the U3 learning above). Ran full verification: `npm run typecheck` (clean), `npm run lint` (0 errors, 3 pre-existing unrelated warnings), `npm run build` (success), `npm test` (332/332 passed, 21 files).
+
+**Rule going forward:** When resuming a handoff that claims "tests pass" but was interrupted before the lint/typecheck/build steps, treat the code-fix claim as unverified until you've re-read the actual diff/files yourself — do not just re-run the same test command and call it done. Always complete the full verification chain (build + lint + typecheck + test) before reporting a security fix as resolved, even if a prior partial report sounded confident.
+
+---
+
+## HUR-172: User Soft-Delete Migration on a Pooled Live DB — False-Positive Verification Trap (2026-08-24)
+
+**Symptom:** Added `User.deletedAt` to `prisma/schema.prisma` and ran `prisma migrate dev`. The generated migration also included two unrelated statements — `DROP INDEX "products_search_vector_idx"` and `ALTER TABLE "products" ALTER COLUMN "search_vector" DROP DEFAULT` — because Prisma's diff engine tried to "fix" pre-existing drift on a manually-managed generated tsvector column (documented in the schema header: `search_vector` is `Unsupported("tsvector")`, defined by raw SQL outside Prisma's tracking). The migration failed with P3018 (`column "search_vector" is a generated column`). After the failure, a naive `SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='deleted_at'` (no `table_schema` filter) returned a match and was almost read as "the column was partially applied" — but that match was actually Supabase's own `auth.users.deleted_at` column, a completely different table in a different schema with the same name. Re-querying with `table_schema='public'` showed `public.users` had _no_ `deleted_at` column: the failed migration had, in fact, rolled back cleanly and the DB was untouched.
+
+**Cause:** Two compounding traps: (1) Prisma will bundle unrelated drift-fixes into a migration diff for any schema with `Unsupported(...)` columns backed by manual SQL — never assume a generated migration only contains your intended change; always read `migration.sql` before applying to a live DB. (2) `information_schema.columns` queries against a Postgres instance with multiple schemas (e.g. Supabase's `public` + `auth` schemas) will silently match same-named columns/tables in _other_ schemas if `table_schema` isn't specified — this can produce a false-positive that looks exactly like a dangerous partial-DDL-application state on a live database.
+
+**Resolution:** (1) Always qualify `table_schema='public'` (or the project's actual schema) in any `information_schema` query used to verify live-DB state — an unqualified query is not a reliable signal. (2) When a generated migration contains statements outside your task's scope, hand-edit `migration.sql` to remove them (with a comment explaining why) before applying, rather than forcing the full diff. (3) To recover from a P3018 failure: `prisma migrate resolve --rolled-back <name>` (after confirming via a _properly schema-qualified_ query that nothing partially applied), apply the cleaned SQL directly via `$executeRawUnsafe`, then `prisma migrate resolve --applied <name>` so `prisma migrate status` reports clean again. Re-verify with a schema-qualified query before declaring success.
+
+**Rule going forward:** On a live/pooled database (Supabase, RDS Proxy, PgBouncer, etc.), never trust an unqualified `information_schema` query to determine whether a failed migration partially applied — always add `table_schema = 'public'` (or whatever the app schema actually is) explicitly, since Postgres has multiple schemas (e.g. `auth`, `storage`) that can contain same-named tables/columns and produce misleading matches. When `prisma migrate dev` bundles unrelated statements into your diff (common with `Unsupported(...)` / manually-managed columns), read the generated `migration.sql` before applying — do not force-apply a migration containing changes outside your task's explicit scope onto a live database.
+
+## HUR-172: Test Titles Must Not Overstate Security Guarantees (2026-08-24)
+
+**Symptom:** Security review flagged a HIGH finding on `softDeleteUser()`: the test "revokes all active sessions for the user" (and a matching doc comment "Revoke active sessions (AC11 step 5)") correctly asserted `tx.session.deleteMany(...)` was called, but the _title_ implied a security guarantee — active session revocation — that the code does not actually provide.
+
+**Cause:** This app uses `session.strategy: "jwt"` (`src/auth.ts`), under which NextAuth validates sessions purely from the signed JWT cookie and never queries the `sessions` DB table per request. That table is only used for OAuth account-linking bookkeeping here. Deleting rows from it has zero effect on an already-issued JWT cookie — a soft-deleted user's browser session stays valid until JWT `maxAge` expiry. The test assertion itself was correct (verifying the DB call happened); only the human-readable title/doc-comment was misleading about what security property was achieved.
+
+**Rule going forward:** A test can be functionally correct (asserts the right mock call) while still being a security-accuracy bug if its title/description claims a guarantee the implementation doesn't provide under the app's actual runtime configuration (e.g. JWT vs database session strategy). When writing/reviewing test titles for security-sensitive code, ask "does this test title match what happens at runtime, not just what the mock asserts?" — cross-check against adjacent config (e.g. `session.strategy`) before naming a test "revokes X" or "invalidates Y". Mirror any such known limitation in the corresponding doc comment and any user-facing guidelines doc (e.g. `docs/guidelines/privacy-and-data.md`) so the gap isn't rediscovered as a fresh finding later.
+
+---
+
 ## HUB-20: UI Design System — Independently Verifying Contrast-Ratio Claims (2026-08-24)
 
 **Symptom:** The builder's `src/app/globals.css` and `src/components/ui/README.md` asserted specific WCAG contrast ratios (e.g. "primary-600 on white = 6.70:1, drops to 2.95:1 on dark bg, hence a separate `-text` token variant swaps to primary-400 = 7.79:1"). These are exactly the kind of quantitative claim that must be independently recomputed, not trusted from a doc comment.
