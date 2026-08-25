@@ -1,11 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
+import { NextRequest } from "next/server";
 
 /**
  * Proxy Middleware Tests — Configuration and Correlation ID Logic
  *
- * Note: Full middleware integration tests are deferred to E2E suite.
- * These tests cover the correlation ID validation pattern and config export.
+ * Note: Most middleware behavior (auth redirects requiring a real session/DB,
+ * admin role checks) is still deferred to the E2E suite. The correlation ID
+ * validation pattern and config export are covered below with hand-rolled
+ * logic mirrors, since they're pure functions extracted from proxy.ts.
+ *
+ * The locale-detection redirect, however, is exercised against the REAL
+ * exported `proxy()` function (not a logic replica) in the "real proxy
+ * behavior" block below — this only became possible once vitest.config.ts
+ * inlined next-intl/next-auth for SSR module resolution (see that file's
+ * comment for why plain `next/server` imports failed inside those deps).
  */
 
 describe("proxy middleware configuration", () => {
@@ -77,5 +86,35 @@ describe("proxy middleware configuration", () => {
     const correlationId = inbound && UUID_PATTERN.test(inbound) ? inbound : randomUUID();
 
     expect(validPattern.test(correlationId)).toBe(true);
+  });
+});
+
+describe("real proxy behavior — Accept-Language locale detection (AC3)", () => {
+  it("redirects an unprefixed public route to /so when Accept-Language: so", async () => {
+    const { proxy } = await import("@/proxy");
+
+    const request = new NextRequest("http://localhost/", {
+      headers: { "accept-language": "so" },
+    });
+
+    const response = await proxy(request);
+
+    expect(response.status).toBeGreaterThanOrEqual(300);
+    expect(response.status).toBeLessThan(400);
+    expect(response.headers.get("location")).toMatch(/\/so(\/|$)/);
+  });
+
+  it("redirects an unprefixed public route to /en when Accept-Language: en", async () => {
+    const { proxy } = await import("@/proxy");
+
+    const request = new NextRequest("http://localhost/", {
+      headers: { "accept-language": "en" },
+    });
+
+    const response = await proxy(request);
+
+    expect(response.status).toBeGreaterThanOrEqual(300);
+    expect(response.status).toBeLessThan(400);
+    expect(response.headers.get("location")).toMatch(/\/en(\/|$)/);
   });
 });

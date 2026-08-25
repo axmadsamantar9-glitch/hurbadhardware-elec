@@ -1,4 +1,41 @@
 {
+  "common": {
+    "loading": "Waa la soo raraya...",
+    "error": "Wax baa qaldamay",
+    "save": "Keydi",
+    "cancel": "Jooji",
+    "confirm": "Xaqiiji",
+    "back": "Dib u noqo",
+    "next": "Xiga",
+    "search": "Raadi"
+  },
+  "product": {
+    "addToCart": "Ku Dar Gaadhiga",
+    "outOfStock": "Alaabta Ma Jirto",
+    "inStock": "Alaabta Way Diyaar Tahay",
+    "price": "Qiimaha",
+    "quantity": "Tirada",
+    "viewDetails": "Eeg Faahfaahinta",
+    "specifications": "Astaamaha",
+    "reviews": "Faallooyinka"
+  },
+  "cart": {
+    "title": "Gaadhiga",
+    "empty": "Gaadhigaagu waa madhan yahay",
+    "subtotal": "Wadarta Hoose",
+    "checkout": "Bixinta",
+    "remove": "Ka Saar",
+    "updateQuantity": "Cusboonaysii Tirada",
+    "itemCount": "{count} alaab"
+  },
+  "checkout": {
+    "title": "Bixinta",
+    "shippingAddress": "Cinwaanka Rarista",
+    "paymentMethod": "Habka Lacag Bixinta",
+    "orderSummary": "Soo Koobidda Dalabka",
+    "placeOrder": "Dir Dalabka",
+    "orderConfirmation": "Xaqiijinta Dalabka"
+  },
   "home": {
     "welcome": "Mabarka HurbadHardware",
     "browse": "Iska Duub Alaab",

@@ -513,3 +513,27 @@ When a HIGH security finding requires a code fix (e.g., adding rate-limit enforc
 **Cause:** Standard gate checklist (build/lint/typecheck/test/dogfood/security) has no step that reads the ledger's _prose_ — only its checkbox state.
 
 **Rule going forward:** For any item flagged as "re-scoped" or "partial completion" by product-planning, explicitly diff-read the FEATURES.md row/note before marking verified, and confirm the deferred-work language survives in the entry (not overwritten with a plain checkmark). Treat "gates green but note vaguer than the re-scope decision" as a rejection reason on its own.
+
+## HUR-13/HUR-175: Internationalization Gap Closure (2026-08-25)
+
+### All Gates Passed — Item Verified; dirty tree again contained a second, unrelated workstream
+
+**Verification Date:** 2026-08-25
+**Item:** HUR-13/HUR-175 (HUB-22 gap closure) — missing i18n namespaces, `useLocaleField` hook, unverified test scenarios.
+
+**Gate Results:** Build ✓ (9 routes, Turbopack), Lint ✓ (0 errors, 3 pre-existing unrelated warnings), Typecheck ✓, Tests 417/417 + coverage 89.22%/80.57%/90%/89.33% (independently reproduced, exact match to qa-test's self-report; no bcrypt flake observed on this run), Dogfood ✓ (curled the already-running dev server: `/en`→lang="en", `/so`→lang="so", `/fr`→307, `/so/auth/signin`→200, root with `Accept-Language: so`→307 to `/so`, all matching prior U4-verified behavior — no regression), Security ✓ (independently scanned diff for secret patterns — none found; independently read `mergeMessagesWithFallback` and confirmed no user-input path, `so` correctly wins on key presence, `en` only fills true gaps, no key reordering/corruption — matches qa-test's independent line-by-line read).
+
+**Scope integrity — dirty tree had a second workstream again (same pattern as HUB-20):** `git diff --stat` showed 17 modified + 6 untracked paths, but `eslint.config.mjs`, `package.json`/`package-lock.json` (adds `eslint-plugin-jsx-a11y`), `src/app/[locale]/account/page.tsx`, `src/app/[locale]/admin/page.tsx` (`<a href="#">` → `<button disabled aria-disabled>`), and part of `src/components/language-switcher.tsx` (focus-trap/aria-expanded/role=menu/Escape-to-close) are HUB-21 accessibility-hardening work, not HUR-13/HUR-175 i18n scope — confirmed by reading each diff's content, not just the file list. Isolated the true i18n-scoped footprint: `src/i18n.ts` (+`mergeMessagesWithFallback`), `src/i18n.test.ts`, `src/messages/{en,so}.json` (95 keys, 4 new namespaces, verified 1:1 parity with a flatten-and-diff script), `src/messages.test.ts`, `src/lib/locale-field.ts` (+test), `src/hooks/use-locale-field.ts`, `src/proxy.test.ts`, `vitest.config.ts` — matches the ticket's stated scope exactly, correctly excludes catalog/PDP/cart/checkout UI (deferred).
+
+**Note:** No dedicated `docs/agents/learnings/security-reviewer.md` entry existed for this specific ticket (last entry was HUR-172) — the "informational note on prototype-pollution shape" mentioned in the handoff wasn't found as a durable record. Did not block on this since I independently re-verified the underlying claim myself (static-JSON-only input path, no exploitable surface) rather than relying solely on an unwritten verbal report.
+
+**Rule going forward:** The "dirty tree contains multiple concurrent workstreams" pattern (first seen at HUB-20) recurred at HUR-13/HUR-175 — always assume it going forward and cross-reference every changed file's content against the ticket's stated scope before running the scope-integrity gate, not just the file list. Also: if a handoff claims a specific security-reviewer finding (e.g. "1 informational note on X") but no corresponding entry exists in `docs/agents/learnings/security-reviewer.md`, independently re-verify the underlying claim yourself rather than treating the verbal report as sufficient — durable written findings are the source of truth, not agent-to-agent handoff prose.
+
+---
+
+## Summary
+
+**Item:** HUR-13/HUR-175 (HUB-22 gap closure) — Internationalization
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-25
+**All 8 Production-Readiness Gates:** GREEN (including scope-integrity, correctly isolated from a concurrent HUB-21 accessibility workstream in the same dirty tree)
