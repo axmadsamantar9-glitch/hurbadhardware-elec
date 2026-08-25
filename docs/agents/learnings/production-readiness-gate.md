@@ -503,3 +503,13 @@ When a HIGH security finding requires a code fix (e.g., adding rate-limit enforc
 **Status:** ✅ VERIFIED
 **Date:** 2026-08-24
 **All 8 Production-Readiness Gates:** GREEN (including scope-integrity and schema-untouched hard gates, scoped correctly to HUB-20's actual file footprint)
+
+## HUB-21 (HUR-96): Accessibility Foundations — re-scoped item verification (2026-08-24)
+
+### Verifying a "re-scoped/partial" item requires checking the ledger note, not just the gates
+
+**Symptom risk:** A re-scoped item (deferred ACs) could pass all 6 mechanical gates yet still be mis-recorded in FEATURES.md as fully complete, silently dropping the deferred-AC context that product-planning attached.
+
+**Cause:** Standard gate checklist (build/lint/typecheck/test/dogfood/security) has no step that reads the ledger's _prose_ — only its checkbox state.
+
+**Rule going forward:** For any item flagged as "re-scoped" or "partial completion" by product-planning, explicitly diff-read the FEATURES.md row/note before marking verified, and confirm the deferred-work language survives in the entry (not overwritten with a plain checkmark). Treat "gates green but note vaguer than the re-scope decision" as a rejection reason on its own.

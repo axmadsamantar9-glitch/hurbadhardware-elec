@@ -88,12 +88,14 @@ export default function AccountPage() {
               <div className="border-t border-zinc-200 pt-6">
                 <h3 className="text-lg font-semibold mb-4">{t("account.adminAccess")}</h3>
                 <p className="text-zinc-600 mb-4">{t("account.adminPrivileges")}</p>
-                <a
-                  href="#"
-                  className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 transition-colors"
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                 >
                   {t("account.goToDashboard")}
-                </a>
+                </button>
               </div>
             )}
 

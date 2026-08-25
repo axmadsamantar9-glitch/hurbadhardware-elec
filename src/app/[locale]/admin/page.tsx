@@ -60,34 +60,40 @@ export default function AdminPage() {
             <div className="rounded-lg border border-zinc-200 bg-white p-6">
               <h3 className="text-lg font-semibold mb-2">{t("admin.products")}</h3>
               <p className="text-zinc-600 mb-4">{t("admin.manageProductCatalog")}</p>
-              <a
-                href="#"
-                className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 transition-colors"
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:pointer-events-none"
               >
                 {t("admin.goToProducts")}
-              </a>
+              </button>
             </div>
 
             <div className="rounded-lg border border-zinc-200 bg-white p-6">
               <h3 className="text-lg font-semibold mb-2">{t("admin.orders")}</h3>
               <p className="text-zinc-600 mb-4">{t("admin.viewManageOrders")}</p>
-              <a
-                href="#"
-                className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 transition-colors"
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:pointer-events-none"
               >
                 {t("admin.goToOrders")}
-              </a>
+              </button>
             </div>
 
             <div className="rounded-lg border border-zinc-200 bg-white p-6">
               <h3 className="text-lg font-semibold mb-2">{t("admin.analytics")}</h3>
               <p className="text-zinc-600 mb-4">{t("admin.viewSalesMetrics")}</p>
-              <a
-                href="#"
-                className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 transition-colors"
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:pointer-events-none"
               >
                 {t("admin.goToAnalytics")}
-              </a>
+              </button>
             </div>
           </div>
 
