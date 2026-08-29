@@ -12,21 +12,26 @@ export type {
   Account,
   Address,
   AuditLog,
+  Brand,
   Cart,
   CartItem,
   Category,
   Coupon,
   FxRate,
   InventoryLog,
+  Manufacturer,
   Order,
   OrderItem,
   Payment,
   Product,
   ProductImage,
   ProductSpec,
+  ProductSupplier,
   ProductVariant,
   Review,
   Session,
+  SpecTemplateKey,
+  Supplier,
   User,
   VerificationToken,
   WhatsappSession,
@@ -66,13 +71,22 @@ export type { Decimal } from "@prisma/client/runtime/library";
 
 import type { Prisma as PrismaNamespace } from "@prisma/client";
 
-/** Product with everything a product detail page renders. */
+/**
+ * Product with everything a product detail page renders.
+ *
+ * Deliberately does NOT include `suppliers` (ProductSupplier/Supplier) —
+ * that relation is admin-only per Iron Rule #6 and must never reach a
+ * public query payload. See src/lib/api/serialize-product.ts for the
+ * redaction layer that also strips it defensively at serialization time.
+ */
 export type ProductWithRelations = PrismaNamespace.ProductGetPayload<{
   include: {
     images: true;
     specs: true;
     variants: true;
     category: true;
+    brand: true;
+    manufacturer: true;
   };
 }>;
 
@@ -81,6 +95,7 @@ export type ProductListItem = PrismaNamespace.ProductGetPayload<{
   include: {
     images: true;
     category: true;
+    brand: true;
   };
 }>;
 

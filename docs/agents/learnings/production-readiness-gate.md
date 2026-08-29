@@ -537,3 +537,155 @@ When a HIGH security finding requires a code fix (e.g., adding rate-limit enforc
 **Status:** ✅ VERIFIED
 **Date:** 2026-08-25
 **All 8 Production-Readiness Gates:** GREEN (including scope-integrity, correctly isolated from a concurrent HUB-21 accessibility workstream in the same dirty tree)
+
+## HUR-27/HUB-23: Mobile Experience (2026-08-29)
+
+### All Gates Passed — Item Verified; docs+CSS-only ticket, dev-server curl as dogfood substitute
+
+**Verification Date:** 2026-08-29
+**Item:** HUR-27 (HUB-23) — Mobile Experience: breakpoint/mobile-first convention doc, extended touch-target audit, verified 5 existing pages at mobile widths, one real admin-header collision fix (Somali locale string only).
+
+**Gate Results:** Build ✓ (Next.js 16.3.1, Turbopack, 51s compile + 12.5s TS pass, 9 routes). Lint ✓ (0 errors, 3 pre-existing unrelated warnings in rate-limit files). Typecheck ✓. Tests: first run showed 4 `auth-utils.test.ts` bcrypt-hashing timeouts (413/417) — re-ran full suite once more with zero flakes, 417/417 passing, coverage 89.22%/80.57%/90%/89.33% (exact match to HUR-13 baseline, unchanged as expected for a CSS/docs-only ticket). Treated the first run's bcrypt timeouts as environment flake (not a regression) since they disappeared on immediate re-run with no code changes in between — bcrypt hashing is CPU-bound and timing-sensitive under machine load, not related to this ticket's diff. Dogfood: no dedicated dogfood script exists for this docs/CSS ticket (correctly, per the item's scope); started `npm run dev`, polled `/api/health` until up (503/degraded, expected — DB unprovisioned in this env), then curled `/en`, `/so` (lang attrs correct), `/en/admin` and `/so/admin` unauthenticated (both 307 redirect — RBAC gate intact in both locales, proving the header className change didn't affect the auth gate), `/so/auth/signin` (200) — all matching prior-verified U4/HUR-13 behavior, zero regression.
+
+**Security:** Independently confirmed `src/proxy.ts` has zero diff from HEAD (`git diff HEAD -- src/proxy.ts` = 0 lines) and its admin role check (line 85: `pathname.includes("/admin") && session.user.role !== "ADMIN"`) is untouched. Also read `admin/page.tsx`'s client-side role check (line 33) — untouched; only the header `<div>`'s `className` changed (`justify-between items-center` → `flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between`), a pure layout change with zero logic/auth surface. Secret-pattern grep across the full diff found only a "Password input" table row label and Tailwind "token" terminology — no literal secrets.
+
+**Scope integrity:** `git diff --stat` = exactly `FEATURES.md`, `docs/agents/learnings/storefront.md`, `docs/standards/accessibility.md` (Section 8.1 touch-target rows only), `src/app/[locale]/admin/page.tsx` (single className line), plus untracked `docs/standards/responsive-design.md`. No catalog/PDP/cart/checkout files (correctly deferred to Module 05, documented explicitly in both the new doc's Section 4 and FEATURES.md row). No HUB-20/21/22 substantive files touched — clean single-workstream diff this time (unlike the HUB-20/HUR-13 sessions which had concurrent-workstream contamination).
+
+**Corrected Linear scope match:** Confirmed FEATURES.md HUB-23 row and `docs/standards/responsive-design.md` both describe breakpoints/touch-friendly UI/mobile-first CSS — the corrected Mobile Experience framing, not the old mismatched SEO scope.
+
+### Rule Going Forward
+
+For docs/CSS-only tickets with no dedicated dogfood script, an acceptable dogfood substitute is: start the dev server, poll `/api/health`, then curl the specific routes touched by the diff (here: admin routes in both locales) to confirm the change didn't silently break an unrelated concern (auth/RBAC) — do not skip dogfood just because "no new user flow was added." A CSS className change to an auth-gated page's header is exactly the kind of low-risk-looking diff that still deserves a live request-response check, not just a build/lint/typecheck pass.
+
+---
+
+## Summary
+
+**Item:** HUR-27/HUB-23 — Mobile Experience
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-29
+**All 8 Production-Readiness Gates:** GREEN (including scope-integrity and corrected-Linear-scope-match hard gates)
+
+## HUR-177/HUB-24: Testing the Mobile App Experience (2026-08-29)
+
+### All Gates Passed — Item Verified; independently re-verified security claim with no durable record, spot-checked real JSON reports against documented tables
+
+**Verification Date:** 2026-08-29
+**Item:** HUR-177 (HUB-24) — Lighthouse tooling install, real mobile-emulated (Slow-4G) audits against all 6 existing pages, documented baseline + PRD ≥85 target for `/[locale]/products` (deferred, page doesn't exist yet), Playwright E2E harness explicitly deferred to Module 05.
+
+**Gate Results:** Build ✓ (Next.js 16.3.1 Turbopack, 5.9s compile + 7.2s TS pass, 9 routes). Lint ✓ (0 errors, 3 pre-existing unrelated warnings in rate-limit files, same as prior sessions). Typecheck ✓. Tests 417/417 passing, coverage 89.22%/80.57%/90%/89.33% — exact match to the unchanged baseline (expected: this is a dev-tooling/docs ticket, zero app-code test surface touched). Dogfood: no dedicated dogfood script exists for this ticket (correctly — dev-tooling, no new user flow); started `npm run dev`, polled `/api/health` (503, expected — DB unprovisioned), curled `/en` (200), `/so` (200), `/en/admin` unauthenticated (307 — RBAC intact), `/en/auth/register` (200) — zero regression, matching prior-session baselines.
+
+**Audit authenticity — independently spot-checked, not just trusted the handoff:** Confirmed `reports/lighthouse/production/*.json` and `reports/lighthouse/dev/*.json` exist on disk (git-ignored per `.gitignore`, correctly — 380-460KB each, real Lighthouse output, not fabricated stubs). Wrote a one-off Node script to extract `categories.*.score` + `largest-contentful-paint`/`cumulative-layout-shift`/`total-blocking-time` audit values directly from 4 of the 6 production JSON files (`_en`, `_so`, `_en_auth_register`, `_en_admin`) and diffed against `docs/standards/performance-testing.md` Section 3's table — all four matched exactly, including the flagged `/en/auth/register` LCP=2848ms regression (correctly documented as exceeding the PRD's 2.5s bar, not silently smoothed over).
+
+**Security — no durable security-reviewer.md entry exists for this ticket (same gap pattern as HUR-13/HUR-175):** `docs/agents/learnings/security-reviewer.md`'s last entry is still HUR-172; no HUB-24 entry was found despite the handoff claiming a GREEN verdict with "1 low note on --no-sandbox flag." Per the standing rule (durable written findings are the source of truth, not handoff prose), independently re-read `scripts/lighthouse-audit.mjs` myself: confirmed the `--no-sandbox` Chrome flag is present (line 177) and is used exclusively against a hardcoded `http://localhost:${PORT}` target (PORT=3000, never user-configurable/network-facing) — non-exploitable, matches the claimed low-severity/non-blocking characterization. No secrets, no eval, no external network calls, no client-bundle exposure (this is a devDependency-only Node script, never shipped to the browser).
+
+**Scope integrity:** `git diff --stat` against HEAD shows exactly: `.gitignore` (+4, ignore raw Lighthouse JSON reports), `eslint.config.mjs` (+1, extend no-console allowlist to `.mjs` scripts), `package.json`/`package-lock.json` (add `lighthouse`+`chrome-launcher` devDeps + 2 npm scripts), `FEATURES.md` (HUB-24 row), plus untracked `docs/standards/performance-testing.md`, `docs/agents/learnings/performance-deployment.md`, `scripts/lighthouse-audit.mjs`. Confirmed via prior sessions' documented pattern (HUB-20/HUR-13 mixed-workstream dirty trees) that the other modified files present in the working tree (`docs/agents/learnings/storefront.md`, `docs/standards/accessibility.md`, `src/app/[locale]/admin/page.tsx`) are pre-existing HUB-23 diff carryover, already verified and committed-pending in the prior HUB-23 session — `git diff` on those three files shows zero additional changes beyond what HUB-23's session already covered, confirming HUB-24 didn't touch them further. No catalog/PDP/cart/checkout files. No substantive HUB-20/21/22 files touched.
+
+**Section 6 (Playwright deferral) cross-check:** Read in full; consistent with Section 1's tooling note (no test-runner beyond Lighthouse installed), doesn't contradict Section 4's PRD-target-deferred language, and correctly frames "no consumer until Module 05" rather than skipping E2E for a weaker reason.
+
+### Rule Going Forward
+
+When a ticket's handoff claims a specific security-reviewer verdict but no corresponding entry exists in `docs/agents/learnings/security-reviewer.md` (recurring pattern, now seen twice — HUR-13/HUR-175 and HUB-24), always independently re-read the flagged file/pattern yourself rather than accepting the verbal characterization. For audit-tooling tickets specifically, don't just trust the summarized report table — write a throwaway script to re-extract 3-4 raw values directly from the underlying JSON artifacts and diff against the documented table; this catches both fabrication and simple transcription errors.
+
+---
+
+## Summary
+
+**Item:** HUR-177/HUB-24 — Testing the Mobile App Experience
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-29
+**All 8 Production-Readiness Gates:** GREEN (including audit-authenticity and scope-integrity hard gates)
+
+## HUR-15/HUB-25: Product Catalog — 3-bounce-back verification, recovered from a self-inflicted `git checkout --` mistake (2026-08-29)
+
+### All Gates Passed — Item Verified; independently reproduced AC6 regression and re-verified full security chain myself
+
+**Verification Date:** 2026-08-29
+**Item:** HUR-15 (HUB-25) — Product Catalog: `getProducts()` (filters/sort/search), `getCategories()` (tree), `getProductBySlug()` (locale-field convention), rate-limiting on all 3 catalog routes, `stockQuantity` redaction.
+
+**Gate Results:** Build ✓ (Turbopack, 11 routes incl. `/api/products`, `/api/products/[slug]`, `/api/categories`). Lint ✓ (0 errors, 3 pre-existing unrelated warnings). Typecheck ✓. Tests 450/450, coverage 92.68%/85.47%/95.52%/92.94% — reproduced twice cleanly (once immediately, once after a transient bcrypt-hashing CPU-load timeout flake in `auth-utils.test.ts` cleared on rerun — same documented pattern as HUR-27's learnings entry, not a regression).
+
+**Self-inflicted mistake and recovery — important process lesson:** To independently reproduce the AC6 regression (hardcoded `"20"` bug), I edited `src/app/api/products/route.ts` via a Python one-liner, confirmed the test failed as expected, then used `git checkout -- src/app/api/products/route.ts` to "restore" it. **This was wrong** — the file had _uncommitted_ changes (the entire HUR-15 diff), so `git checkout --` reverted it all the way to the committed HEAD version (the pre-HUR-15 code with no rate-limiting, no `DEFAULT_PAGE_SIZE`), not just undoing my one-line edit. This silently destroyed the builder's real work in the working tree. Caught it because the full test suite then failed 4 tests (missing rate-limiting) instead of passing — investigated via `git diff --stat` (line count didn't match the original), confirmed via `grep` that the file had reverted to the pre-fix `"20"` literal. Recovered by reconstructing the exact file content from my own earlier `Read` tool output (taken before the edit) and rewriting the file via heredoc, then verified `git diff --stat` matched the original diff stat exactly (53 changed lines) before re-running the full suite to confirm 450/450 clean.
+
+**Rule going forward:** **NEVER use `git checkout -- <file>` (or any HEAD-restoring git command) to "undo" a temporary edit on a file that already has uncommitted changes** — it discards ALL uncommitted work on that file, not just your edit. When temporarily breaking a file to reproduce a regression test, either (a) use the `Edit` tool's own undo-by-reapplying-the-original-string pattern (edit the specific substring back), or (b) `git stash` the specific file first (`git stash push -- <file>`) so you can `git stash pop` it back precisely, or (c) — safest — capture the full file content via `Read` immediately before editing so you can reconstruct it exactly if a git command goes wrong. This gate's job is to verify without altering the artifact under test; a destructive recovery mid-verification must be caught and fully repaired (and disclosed) before the verdict, not silently absorbed.
+
+**Security — independently re-verified, no durable security-reviewer.md entry exists for HUR-15 (same recurring gap as HUR-13/HUR-177):** Read `src/auth.ts` directly — confirmed `login:${clientIP}:${email}` key, checked before any credential validation. Read all 3 catalog routes — confirmed `public:${clientIP}` key, applied before DB work in every route. Read `serialize-product.ts` — confirmed `stockQuantity` genuinely destructured out and replaced with a derived `inStock` boolean (not just typed away). `grep -rn "rateLimiter.check(" src/` — exactly 4 call sites, all namespaced correctly (3× `public:`, 1× `login:`). Live dogfood curl of all 3 catalog routes returned safe generic `internal_error` JSON (no stack traces, no DB connection strings) because Supabase was circuit-breaker-blocked in this environment (worsened by my own 35-request rapid-fire probe attempting to trigger a 429 — a lesson for future live rate-limit dogfood checks: space out probe requests or accept that DB-unreachable environments make live 429 reproduction unreliable and lean on the wired-in unit tests instead, which qa-test/security-reviewer already confirmed test the _exact_ production key composition).
+
+### Rule Going Forward
+
+When attempting a live dogfood reproduction of rate-limiting (429 after N requests), be aware that in a DB-unreachable dev environment, each request can take 3+ seconds (connection-attempt timeout), which lets the token bucket refill faster than requests deplete it — you will never see a 429 this way. This is not a code defect; don't chase it. Rely on the unit test describe block that exercises the _exact_ production key/threshold (per the HUR-172 rule: "as wired into <file>") instead of trying to force a live 429 against a slow/unreachable backend.
+
+---
+
+## Summary
+
+**Item:** HUR-15/HUB-25 — Product Catalog
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-29
+**All 9 Production-Readiness Gates:** GREEN (including AC6-regression-reproduction and full independent security-chain re-verification)
+
+## HUR-55/HUB-26: Brand Management (real schema migration) — dev-server-only DB connectivity flake, worked around with a live-DB standalone-script dogfood substitute (2026-08-29)
+
+### All Gates Passed — Item Verified; live curl dogfood blocked by a pre-existing, non-regression dev-server Prisma connectivity quirk
+
+**Verification Date:** 2026-08-29
+**Item:** HUR-55 (HUB-26) — Brand/Manufacturer/Supplier data model, 3-migration real schema change (additive tables → trigger-maintained `brand_name_cache` + FTS rebuild → destructive `DROP COLUMN products.brand`), narrow Supplier scope (identity + product relation only, no procurement/PO fields, no admin CRUD).
+
+**Gate Results:** Build ✓ (Turbopack, 12 routes incl. new `/api/brands`). Lint ✓ (0 errors; 6 pre-existing warnings, 3 of them in `prisma/manual-scripts/backfill-brands.ts`, a deliberately archived one-off script correctly excluded from `tsconfig.json`'s typecheck graph). Typecheck ✓. Tests: first full run showed the same documented `auth-utils.test.ts` bcrypt-timeout flake seen in prior sessions (3 then 1 failure on immediate rerun); isolated single-file run passed 26/26 cleanly, then a full run with `--testTimeout=15000` passed 462/462 clean — confirms CPU-load flake, not a regression (same root cause as HUR-27's documented pattern).
+
+**Live dogfood — real, reproducible dev-server-only DB connectivity issue, isolated as pre-existing via `git stash` A/B test:** `npm run dev` + curl against `/api/health`, `/api/brands`, `/api/products?brand=samsung` all returned `unreachable`/500, **even though** a fresh standalone `npx tsx` script using the exact same `PrismaClient`/`.env` in the same shell session succeeded instantly and repeatedly (`prisma db execute` also succeeded 3/3 times). This is NOT a code defect: `git stash -u` (removing the entire HUB-26 diff) + restart of `npm run dev` against bare HEAD reproduced the _identical_ `/api/health` failure — proving the dev server's long-lived singleton `PrismaClient` (src/lib/db.ts) has an environment-specific connectivity quirk with this Supabase pooler that pre-dates this ticket and is unrelated to its diff. Restored the stash immediately after, confirmed `git status` matched the pre-stash diff exactly.
+
+**Dogfood substitute used instead (live DB, real functions, zero mocks):** A one-off `npx tsx` script directly importing and calling the actual production functions (`getBrands()`, `getProducts({brand:"samsung"})`, `getProductBySlug()`, `toPublicProduct()`/`toPublicProducts()`) against the live Supabase DB. Results: 31 real brands returned; `brand=samsung` filter returned 3 real matching products; a real product detail (`tecno-camon-30-256gb`) returned with a populated `brand` relation and `brandNameCache: "Tecno"`; `"suppliers" in result` was `false` on every public-serialized payload despite the raw underlying type carrying the relation. This is functionally equivalent to the requested live-curl dogfood (real DB, real code path, real data) with the failure point isolated to the dev server's persistent-connection handling, not the HTTP layer or the business logic under test.
+
+**Migration integrity — independently verified against the live DB, not trusted from handoff prose:** Wrote and ran a throwaway script querying `information_schema.columns` for `products` — confirmed `brand` column is genuinely absent, `brand_id`/`brand_name_cache`/`manufacturer_id` present. `pg_indexes` confirmed `products_search_vector_idx` (GIN) intact and correctly defined. Read all 3 `migration.sql` files directly — confirmed every `ALTER TABLE`/`CREATE TABLE`/`DROP COLUMN` statement touches only `products` (additive columns + generated-column rebuild) plus the 4 new tables; zero touches to any pre-existing unrelated table. `git diff HEAD -- prisma/schema.prisma` confirmed the model-level diff is scoped identically (only `Product` fields + 4 new models).
+
+**Trigger correctness — live self-rolling-back transaction test, not just re-reading SQL:** Ran a `db.$transaction()` that reassigned a real product's `brandId` to Samsung (confirmed `brand_name_cache` updated to `"Samsung"` inside the same transaction), then renamed that Brand's `nameEn` (confirmed the cascade trigger updated the product's `brand_name_cache` to the new name), then threw an intentional error to force rollback — confirmed both triggers fire correctly in the exact order the architect designed, and confirmed zero data was left mutated afterward.
+
+**Security — independently re-verified, durable record existed for once (rule from HUR-13/HUR-177/HUB-24 finally not needed):** `docs/agents/learnings/security-reviewer.md` HAD a real HUB-26 entry this time (breaking the 3-session streak of missing entries) — read it, then independently re-verified its central claim myself: read `serialize-product.ts` (genuine runtime `delete restRecord.suppliers`), grepped `suppliers|Supplier` across `src/` (only `serialize-product.ts`/`.test.ts` + `types/database.ts` re-export touch it), read all 4 public route files (none `include: { suppliers: true }`), and directly opened `serialize-product.test.ts` to confirm the claimed `JSON.stringify(result)).not.toMatch(/supplier/i)` assertion against a fully-PII-nested mock genuinely exists (it does, twice — listing-card and full-detail variants).
+
+**Scope integrity:** No admin CRUD UI for brand/manufacturer/supplier exists anywhere under `src/app` (only the public `/api/brands` read route). No procurement/PO fields on `Supplier` (schema comment explicitly defers to HUB-31). `prisma/manual-scripts/backfill-brands.ts` is correctly archived (header comment explains it no longer compiles post-Step-6 and is tsconfig-excluded) rather than left as live dead code.
+
+### Rule Going Forward
+
+When a live-curl dogfood against `npm run dev` fails with a DB-connectivity error but a standalone `npx tsx`/`prisma db execute` script using the identical `.env` succeeds repeatedly in the same shell session, do not assume the diff under test broke connectivity — first run the exact same dev-server dogfood against `git stash -u` (bare HEAD) to check whether the failure pre-exists. If it does (as it did here), it's an environment-specific quirk in the dev server's persistent `PrismaClient` singleton, not a code defect, and a standalone script directly calling the real production functions against the live DB is an acceptable, equally-rigorous dogfood substitute — it still exercises real DB state, real business logic, and real serialization boundaries, just not the literal HTTP round-trip. Always restore the stash and diff-verify the working tree matches exactly before concluding.
+
+---
+
+## Summary
+
+**Item:** HUR-55/HUB-26 — Brand Management
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-29
+**All 10 Production-Readiness Gates:** GREEN (including independently-verified migration integrity, live trigger test, and full supplier-isolation security chain)
+
+## HUR-180/HUB-27: Category & Specification Templates — purely-additive schema, no dedicated dogfood script needed (2026-08-29)
+
+### All Gates Passed — Item Verified; live-DB re-verification of columns/FK/counts/ordering, scope-integrity confirmed by absence
+
+**Verification Date:** 2026-08-29
+**Item:** HUR-180 (HUB-27) — new `SpecTemplateKey` model (category → ordered, bilingual, mandatory-flagged spec keys), loosely coupled to `ProductSpec` (free-text, no strict FK) by deliberate architect decision.
+
+**Gate Results:** Build ✓ (Turbopack, 13 routes incl. `/api/products/[slug]`). Lint ✓ (0 errors, 6 pre-existing unrelated warnings — 3 in `prisma/manual-scripts/backfill-brands.ts`, 3 in unrelated rate-limit test/config files). Typecheck ✓. Tests 466/466, coverage 92.46%/84.73%/95.83%/92.7% (well above 80%/70% thresholds).
+
+**Migration integrity — independently re-verified against the live DB, not trusted from handoff prose:** Wrote a throwaway `npx tsx` script (deleted after use, confirmed via `git status` no scratch artifacts left behind) querying `information_schema.columns` for `spec_template_keys` — confirmed exactly 7 columns (id, category_id, key_slug, key_en, key_so, sort_order, is_mandatory) matching the Prisma model 1:1. Confirmed FK via `table_constraints`/`referential_constraints`/`key_column_usage`/`constraint_column_usage` join — `spec_template_keys_category_id_fkey` → `categories`, `delete_rule='CASCADE'`. Queried live row counts: 35 total rows across exactly 8 categories (3-5 each), matching the claimed seed. Confirmed `product_specs` (7 cols) and `categories` (8 cols) are byte-unchanged from pre-HUB-27 shape via live `information_schema` query, cross-referenced with `git diff -- prisma/schema.prisma` showing only a new doc comment above `ProductSpec` (zero field/FK change).
+
+**Dogfood — no dedicated script needed, live query is the direct equivalent:** Ran `getSpecTemplate()`'s exact underlying query (`db.specTemplateKey.findMany({ where: { categoryId }, orderBy: { sortOrder: "asc" } })`) against the real `smartphones` category id from the live DB: returned `0:screen_size, 1:ram, 2:storage, 3:battery_capacity, 4:camera_resolution` with `isMandatory` flags matching the seed source — proves ordering is real, not assumed from insertion order.
+
+**Security — no durable security-reviewer.md entry exists for this ticket (same recurring gap as HUR-13/HUR-177/HUB-24; HUB-26 broke the streak but HUB-27 has it again):** Independently re-verified myself rather than trusting the handoff's "GREEN, 0 findings" claim: `grep -rn "specTemplate|SpecTemplateKey" src/` found exactly 2 non-test files (`spec-templates.ts` data layer, `types/database.ts` re-export) plus the test file — zero route, zero admin UI, zero PDP/comparison-table consumer. `ls src/app/api/` confirmed no `/api/spec-templates` route exists. Secret-pattern grep across the full diff found nothing (only prose false-positives like "Password Input" table labels from unrelated files, already dismissed in a prior session).
+
+**Scope integrity confirmed by absence, not just by trusting FEATURES.md:** No admin template-editing UI, no PDP rendering, no comparison-table logic, no new public route, no category slug-redirect anywhere in the diff — matches the ticket's explicit deferred-scope list exactly.
+
+**Note on dirty working tree:** This session's tree still carried the full uncommitted HUB-25/HUB-26 diff underneath the HUB-27 diff (both already independently verified in prior sessions per this file's history) — did not re-litigate those, only isolated and verified the HUB-27-specific schema/seed/data-layer files (`prisma/schema.prisma`'s `SpecTemplateKey` block + `ProductSpec` doc comment, the new migration, `prisma/seed.ts`'s `SPEC_TEMPLATES`/`seedSpecTemplates()` additions, `src/lib/api/spec-templates.ts`+test).
+
+### Rule Going Forward
+
+For a purely-additive, zero-consumer schema ticket (new model + data-layer function + seed data, no route/UI wired up yet), the correct dogfood substitute is running the new data-layer function's exact query directly against the live DB for a real key (not a mock) — this is equally rigorous to a dev-server curl when there's no HTTP endpoint to curl yet, and should not be treated as "dogfood skipped."
+
+---
+
+## Summary
+
+**Item:** HUR-180/HUB-27 — Category & Specification Templates
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-29
+**All 10 Production-Readiness Gates:** GREEN (including independently-verified migration integrity, live-query dogfood substitute, and scope-integrity-by-absence)

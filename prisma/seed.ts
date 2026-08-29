@@ -39,6 +39,165 @@ type SeedCategory = {
   products: SeedProduct[];
 };
 
+type SeedSpecTemplateKey = {
+  keySlug: string;
+  keyEn: string;
+  keySo: string;
+  isMandatory: boolean;
+};
+
+/**
+ * Per-category ordered spec template (HUB-27). Keyed by category slug so it
+ * stays aligned with CATEGORIES above without a second parallel id scheme.
+ * Purely informational/suggestive for the future admin product-edit form —
+ * see SpecTemplateKey's doc comment in prisma/schema.prisma. `isMandatory`
+ * flags here are placeholder technical defaults, not a finalized business
+ * decision — an admin can revise them once template management ships.
+ */
+const SPEC_TEMPLATES: Record<string, SeedSpecTemplateKey[]> = {
+  smartphones: [
+    {
+      keySlug: "screen_size",
+      keyEn: "Screen Size",
+      keySo: "Cabbirka Shaashadda",
+      isMandatory: true,
+    },
+    { keySlug: "ram", keyEn: "RAM", keySo: "RAM", isMandatory: true },
+    { keySlug: "storage", keyEn: "Storage", keySo: "Xafiiska Kaydka", isMandatory: true },
+    {
+      keySlug: "battery_capacity",
+      keyEn: "Battery Capacity",
+      keySo: "Awoodda Baytariga",
+      isMandatory: false,
+    },
+    {
+      keySlug: "camera_resolution",
+      keyEn: "Camera Resolution",
+      keySo: "Xalka Kaamirada",
+      isMandatory: false,
+    },
+  ],
+  laptops: [
+    { keySlug: "processor", keyEn: "Processor", keySo: "Processor-ka", isMandatory: true },
+    { keySlug: "ram", keyEn: "RAM", keySo: "RAM", isMandatory: true },
+    { keySlug: "storage", keyEn: "Storage", keySo: "Xafiiska Kaydka", isMandatory: true },
+    {
+      keySlug: "screen_size",
+      keyEn: "Screen Size",
+      keySo: "Cabbirka Shaashadda",
+      isMandatory: false,
+    },
+    { keySlug: "gpu", keyEn: "Graphics Card", keySo: "Kaadhka Sawirada", isMandatory: false },
+  ],
+  tablets: [
+    {
+      keySlug: "screen_size",
+      keyEn: "Screen Size",
+      keySo: "Cabbirka Shaashadda",
+      isMandatory: true,
+    },
+    { keySlug: "ram", keyEn: "RAM", keySo: "RAM", isMandatory: false },
+    { keySlug: "storage", keyEn: "Storage", keySo: "Xafiiska Kaydka", isMandatory: true },
+    {
+      keySlug: "battery_capacity",
+      keyEn: "Battery Capacity",
+      keySo: "Awoodda Baytariga",
+      isMandatory: false,
+    },
+    { keySlug: "connectivity", keyEn: "Connectivity", keySo: "Isku-xirka", isMandatory: false },
+  ],
+  accessories: [
+    { keySlug: "product_type", keyEn: "Product Type", keySo: "Nooca Alaabta", isMandatory: false },
+    {
+      keySlug: "compatibility",
+      keyEn: "Compatibility",
+      keySo: "La-jaanqaadka",
+      isMandatory: false,
+    },
+    {
+      keySlug: "connection_type",
+      keyEn: "Connection Type",
+      keySo: "Nooca Xidhiidhka",
+      isMandatory: false,
+    },
+  ],
+  "networking-equipment": [
+    {
+      keySlug: "wifi_standard",
+      keyEn: "Wi-Fi Standard",
+      keySo: "Heerka Wi-Fi",
+      isMandatory: false,
+    },
+    { keySlug: "ports", keyEn: "Ports", keySo: "Afaafyada", isMandatory: false },
+    {
+      keySlug: "max_speed",
+      keyEn: "Max Speed",
+      keySo: "Xawaaraha ugu Sarreeya",
+      isMandatory: false,
+    },
+    {
+      keySlug: "coverage_area",
+      keyEn: "Coverage Area",
+      keySo: "Aaga Daboolka",
+      isMandatory: false,
+    },
+  ],
+  "cctv-systems": [
+    { keySlug: "resolution", keyEn: "Resolution", keySo: "Xalka", isMandatory: true },
+    {
+      keySlug: "storage_capacity",
+      keyEn: "Storage Capacity",
+      keySo: "Awoodda Kaydka",
+      isMandatory: false,
+    },
+    { keySlug: "channels", keyEn: "Channels", keySo: "Kanaallada", isMandatory: false },
+    { keySlug: "connectivity", keyEn: "Connectivity", keySo: "Isku-xirka", isMandatory: false },
+    {
+      keySlug: "field_of_view",
+      keyEn: "Field of View",
+      keySo: "Aragga Kaamirada",
+      isMandatory: false,
+    },
+  ],
+  printers: [
+    {
+      keySlug: "print_technology",
+      keyEn: "Print Technology",
+      keySo: "Farsamada Daabacaadda",
+      isMandatory: true,
+    },
+    {
+      keySlug: "print_speed",
+      keyEn: "Print Speed",
+      keySo: "Xawaaraha Daabacaadda",
+      isMandatory: false,
+    },
+    { keySlug: "connectivity", keyEn: "Connectivity", keySo: "Isku-xirka", isMandatory: false },
+    { keySlug: "paper_size", keyEn: "Paper Size", keySo: "Cabbirka Waraaqda", isMandatory: false },
+  ],
+  "computer-components": [
+    {
+      keySlug: "component_type",
+      keyEn: "Component Type",
+      keySo: "Nooca Qaybta",
+      isMandatory: true,
+    },
+    {
+      keySlug: "capacity_or_spec",
+      keyEn: "Capacity / Spec",
+      keySo: "Awoodda / Astaanta",
+      isMandatory: false,
+    },
+    { keySlug: "interface", keyEn: "Interface", keySo: "Isku-xirka", isMandatory: false },
+    {
+      keySlug: "compatibility",
+      keyEn: "Compatibility",
+      keySo: "La-jaanqaadka",
+      isMandatory: false,
+    },
+  ],
+};
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -504,7 +663,39 @@ const CATEGORIES: SeedCategory[] = [
   },
 ];
 
+/**
+ * Upsert a Brand row for every distinct brand name referenced by CATEGORIES,
+ * keyed by the same slugify() used for products (and mirrored by
+ * prisma/manual-scripts/backfill-brands.ts, which produced the existing
+ * live-DB Brand rows from the same source values — this keeps a from-scratch
+ * `prisma db seed` run converging on identical state).
+ *
+ * Returns a nameEn -> Brand id map for use while upserting products.
+ */
+async function seedBrands(): Promise<Map<string, string>> {
+  const brandNames = new Set<string>();
+  for (const category of CATEGORIES) {
+    for (const product of category.products) {
+      brandNames.add(product.brand);
+    }
+  }
+
+  const brandIdByName = new Map<string, string>();
+  for (const name of brandNames) {
+    const slug = slugify(name);
+    const brand = await prisma.brand.upsert({
+      where: { slug },
+      update: { nameEn: name, nameSo: name },
+      create: { nameEn: name, nameSo: name, slug },
+    });
+    brandIdByName.set(name, brand.id);
+  }
+  return brandIdByName;
+}
+
 async function seedCategoriesAndProducts(): Promise<void> {
+  const brandIdByName = await seedBrands();
+
   for (const [categoryIndex, category] of CATEGORIES.entries()) {
     const categoryRow = await prisma.category.upsert({
       where: { slug: category.slug },
@@ -526,6 +717,7 @@ async function seedCategoriesAndProducts(): Promise<void> {
     for (const [productIndex, product] of category.products.entries()) {
       const slug = slugify(product.nameEn);
       const sku = `${category.skuPrefix}-${String(productIndex + 1).padStart(3, "0")}`;
+      const brandId = brandIdByName.get(product.brand);
 
       const productRow = await prisma.product.upsert({
         where: { slug },
@@ -534,7 +726,7 @@ async function seedCategoriesAndProducts(): Promise<void> {
           nameSo: product.nameSo,
           descriptionEn: product.descriptionEn,
           descriptionSo: product.descriptionSo,
-          brand: product.brand,
+          brandId,
           sku,
           basePriceUsd: product.priceUsd,
           stockQuantity: product.stock,
@@ -549,7 +741,7 @@ async function seedCategoriesAndProducts(): Promise<void> {
           slug,
           descriptionEn: product.descriptionEn,
           descriptionSo: product.descriptionSo,
-          brand: product.brand,
+          brandId,
           sku,
           basePriceUsd: product.priceUsd,
           stockQuantity: product.stock,
@@ -579,6 +771,42 @@ async function seedCategoriesAndProducts(): Promise<void> {
           },
         });
       }
+    }
+  }
+}
+
+/**
+ * Upsert each category's spec template keys, keyed by (categoryId, keySlug)
+ * per the model's `@@unique([categoryId, keySlug])`. Requires
+ * seedCategoriesAndProducts() to have already run so every CATEGORIES slug
+ * resolves to a real Category row.
+ */
+async function seedSpecTemplates(): Promise<void> {
+  for (const [slug, keys] of Object.entries(SPEC_TEMPLATES)) {
+    const category = await prisma.category.findUnique({ where: { slug } });
+    if (!category) {
+      console.warn(`Skipping spec template for unknown category slug "${slug}"`);
+      continue;
+    }
+
+    for (const [index, key] of keys.entries()) {
+      await prisma.specTemplateKey.upsert({
+        where: { categoryId_keySlug: { categoryId: category.id, keySlug: key.keySlug } },
+        update: {
+          keyEn: key.keyEn,
+          keySo: key.keySo,
+          sortOrder: index,
+          isMandatory: key.isMandatory,
+        },
+        create: {
+          categoryId: category.id,
+          keySlug: key.keySlug,
+          keyEn: key.keyEn,
+          keySo: key.keySo,
+          sortOrder: index,
+          isMandatory: key.isMandatory,
+        },
+      });
     }
   }
 }
@@ -672,6 +900,9 @@ async function main(): Promise<void> {
   console.log("Seeding categories and products…");
   await seedCategoriesAndProducts();
 
+  console.log("Seeding spec templates…");
+  await seedSpecTemplates();
+
   console.log("Seeding admin user…");
   await seedAdminUser();
 
@@ -681,15 +912,16 @@ async function main(): Promise<void> {
   console.log("Seeding coupons…");
   await seedCoupons();
 
-  const [categories, products, images, coupons] = await Promise.all([
+  const [categories, products, images, coupons, specTemplateKeys] = await Promise.all([
     prisma.category.count(),
     prisma.product.count(),
     prisma.productImage.count(),
     prisma.coupon.count(),
+    prisma.specTemplateKey.count(),
   ]);
 
   console.log(
-    `Seed complete: ${categories} categories, ${products} products, ${images} images, ${coupons} coupons.`
+    `Seed complete: ${categories} categories, ${products} products, ${images} images, ${coupons} coupons, ${specTemplateKeys} spec template keys.`
   );
 }
 

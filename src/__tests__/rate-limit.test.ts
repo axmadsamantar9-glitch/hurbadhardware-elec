@@ -188,10 +188,14 @@ describe("Rate Limiting Middleware", () => {
 
   describe("Login rate-limiting (as wired into src/auth.ts authorize())", () => {
     // src/auth.ts's Credentials authorize() computes the rate-limit key as
-    // `${clientIP}:${email}` and checks it against getRateLimitConfig("login")
-    // threshold *before* validating credentials. These tests exercise that
-    // exact key shape/threshold against the shared rateLimiter singleton to
-    // guard against regressions, since auth.ts itself can't be imported in
+    // `login:${clientIP}:${email}` and checks it against
+    // getRateLimitConfig("login") threshold *before* validating credentials.
+    // The `login:` prefix is load-bearing: without it, an attacker-supplied
+    // IP/email combination can collide with another category's key (e.g.
+    // catalog routes' `public:${clientIP}`) in the shared rateLimiter
+    // singleton, enabling a targeted cross-category DoS. These tests exercise
+    // that exact key shape/threshold against the shared rateLimiter singleton
+    // to guard against regressions, since auth.ts itself can't be imported in
     // the Node test environment (see docs/agents/learnings/qa-test.md).
     it("allows up to the configured login threshold (5) attempts per IP+account", () => {
       const { threshold } = getRateLimitConfig("login");
@@ -199,7 +203,7 @@ describe("Rate Limiting Middleware", () => {
 
       const ip = "203.0.113.9";
       const email = "victim@example.com";
-      const key = `${ip}:${email}`;
+      const key = `login:${ip}:${email}`;
 
       for (let i = 0; i < threshold; i++) {
         expect(rateLimiter.check(key, threshold).allowed).toBe(true);
@@ -210,7 +214,7 @@ describe("Rate Limiting Middleware", () => {
       const { threshold } = getRateLimitConfig("login");
       const ip = "203.0.113.9";
       const email = "victim@example.com";
-      const key = `${ip}:${email}`;
+      const key = `login:${ip}:${email}`;
 
       for (let i = 0; i < threshold; i++) {
         rateLimiter.check(key, threshold);
@@ -228,13 +232,13 @@ describe("Rate Limiting Middleware", () => {
       const { threshold } = getRateLimitConfig("login");
       const ip = "203.0.113.9";
 
-      const key1 = `${ip}:attacker-target-1@example.com`;
+      const key1 = `login:${ip}:attacker-target-1@example.com`;
       for (let i = 0; i < threshold; i++) {
         rateLimiter.check(key1, threshold);
       }
       expect(rateLimiter.check(key1, threshold).allowed).toBe(false);
 
-      const key2 = `${ip}:attacker-target-2@example.com`;
+      const key2 = `login:${ip}:attacker-target-2@example.com`;
       expect(rateLimiter.check(key2, threshold).allowed).toBe(true);
     });
 
@@ -242,13 +246,13 @@ describe("Rate Limiting Middleware", () => {
       const { threshold } = getRateLimitConfig("login");
       const email = "shared-account@example.com";
 
-      const key1 = `203.0.113.9:${email}`;
+      const key1 = `login:203.0.113.9:${email}`;
       for (let i = 0; i < threshold; i++) {
         rateLimiter.check(key1, threshold);
       }
       expect(rateLimiter.check(key1, threshold).allowed).toBe(false);
 
-      const key2 = `198.51.100.20:${email}`;
+      const key2 = `login:198.51.100.20:${email}`;
       expect(rateLimiter.check(key2, threshold).allowed).toBe(true);
     });
   });

@@ -76,7 +76,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Uses the same generic error as invalid credentials so the response
         // does not leak "rate limited" vs "wrong password" to an attacker.
         const clientIP = getClientIP(request);
-        const rateLimitKey = `${clientIP}:${email}`;
+        const rateLimitKey = `login:${clientIP}:${email}`;
         const { threshold } = getRateLimitConfig("login");
         const rateLimitResult = rateLimiter.check(rateLimitKey, threshold);
         if (!rateLimitResult.allowed) {

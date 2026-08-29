@@ -1,0 +1,12 @@
+-- HUB-26 Step 6: drop the legacy free-text `brand` column now that
+-- `brandId`/`brandNameCache` fully replace it (verified: 0 unmigrated
+-- products, FTS spot-check passed on migration steps 1-5).
+--
+-- NOTE: `prisma migrate diff` against this schema always also emits
+-- `DROP INDEX "products_search_vector_idx"` / `ALTER COLUMN "search_vector"
+-- DROP DEFAULT` as false drift because `searchVector` is
+-- `Unsupported("tsvector")?` — Prisma can never fully reconcile a manually
+-- managed GENERATED column against its own model. Both statements are
+-- deliberately omitted here; the generated column and its index are
+-- untouched by this migration. See docs/agents/learnings/storefront.md.
+ALTER TABLE "products" DROP COLUMN "brand";

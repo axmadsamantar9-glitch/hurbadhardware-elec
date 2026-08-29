@@ -234,6 +234,35 @@ steppers in M05) must be checked against this table's method before
 shipping — do not introduce a tap target smaller than `h-8`/`w-8` (32px)
 without an explicit spacing-exception justification recorded here.
 
+### 8.1 Raw HTML auth form controls (added HUB-23)
+
+`src/app/[locale]/auth/signin/signin-form.tsx` and
+`src/app/[locale]/auth/register/register-form.tsx` render plain `<input>`/
+`<button>` elements directly (not the HUB-20 `Input`/`Button` primitives),
+so they were out of scope for the original Section 8 audit above. Neither
+file sets an explicit `text-*` size class on its inputs/buttons, so they
+inherit the Tailwind v4 Preflight body default: 16px font-size, `1.5`
+line-height → 24px computed line-height (matches this project's own
+`--text-base--line-height: 1.5rem` token in `src/app/globals.css`).
+
+| Component                                                     | Classes                             | Computed size                                                                                                                         | 24×24 min | Result   |
+| ------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------- | -------- |
+| Email input (signin + register)                               | `w-full ... px-3 py-2 border` (1px) | Height: 2×8px padding (py-2) + 24px line-height + 2×1px border = 42px. Width: `w-full` (≈448px max-w-md container minus outer `px-4`) | 24×24px   | **PASS** |
+| Password input (signin + register)                            | same as above                       | 42px tall × full container width                                                                                                      | 24×24px   | **PASS** |
+| Confirm-password input (register only)                        | same as above                       | 42px tall × full container width                                                                                                      | 24×24px   | **PASS** |
+| Submit button ("Sign In" / "Create Account")                  | `w-full ... px-4 py-2` (no border)  | Height: 2×8px padding + 24px line-height = 40px. Width: `w-full`                                                                      | 24×24px   | **PASS** |
+| Google OAuth button ("Sign in with Google", signin form only) | `w-full ... px-4 py-2 border` (1px) | Height: 2×8px padding + 24px line-height + 2×1px border = 42px. Width: `w-full`                                                       | 24×24px   | **PASS** |
+
+All raw HTML auth form controls meet the 24×24 CSS px minimum with no
+remediation needed. Because every control here uses `w-full` inside a
+`max-w-md` container, width is never the binding constraint — the padding
+
+- line-height combination on the height axis is what was checked against
+  the 24px floor, per the same method used in the table above. These
+  controls should still be migrated to the HUB-20 `Input`/`Button`
+  primitives when the auth forms are next touched, for consistency (not an
+  accessibility blocker — tracked as a nice-to-have, not a gap).
+
 ---
 
 ## 9. Deferred Scope

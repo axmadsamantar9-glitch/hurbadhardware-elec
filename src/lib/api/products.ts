@@ -2,14 +2,30 @@
  * Product data layer (U5).
  *
  * Handles product queries with pagination, full-text search via tsvector,
- * and filtering by category, brand, and price range.
+ * and filtering by category, brand, price range, and stock availability.
+ * Also exposes single-product lookup by slug (U7) for the product detail page.
  */
 
 import { z } from "zod";
 import { Decimal as PrismaDecimal } from "@prisma/client/runtime/library";
 import type { Prisma } from "@/types/database";
 import { db } from "@/lib/db";
-import type { ProductListItem } from "@/types/database";
+import type { ProductListItem, ProductWithRelations } from "@/types/database";
+
+/** Sort options for `getProducts()`. Default is `newest`. */
+export const PRODUCT_SORTS = ["price_asc", "price_desc", "newest", "rating", "popularity"] as const;
+export type ProductSort = (typeof PRODUCT_SORTS)[number];
+
+/**
+ * Default page size (HUR-15/AC6): 24. Chosen over the previously-shipped
+ * default of 20 because no Module 05 (catalog UI) consumer exists yet to
+ * depend on 20 — this data layer and its route are the only callers today
+ * (see src/lib/api/products.test.ts, src/app/api/products/route.ts), so
+ * aligning with the HUR-15 spec now is free. If a UI consumer starts relying
+ * on a specific page size, treat that call site as the source of truth
+ * instead of this constant.
+ */
+export const DEFAULT_PAGE_SIZE = 24;
 
 /**
  * Zod schema for query parameters. Defines validation rules and provides
@@ -17,12 +33,23 @@ import type { ProductListItem } from "@/types/database";
  */
 export const GetProductsQuerySchema = z.object({
   page: z.string().optional().pipe(z.coerce.number().int().positive().default(1)),
-  limit: z.string().optional().pipe(z.coerce.number().int().positive().max(100).default(20)),
+  limit: z
+    .string()
+    .optional()
+    .pipe(z.coerce.number().int().positive().max(100).default(DEFAULT_PAGE_SIZE)),
   search: z.string().optional().default(""),
   category: z.string().optional().default(""),
   brand: z.string().optional().default(""),
   priceMin: z.string().optional().pipe(z.coerce.number().nonnegative().optional()),
   priceMax: z.string().optional().pipe(z.coerce.number().nonnegative().optional()),
+  // "true" -> true, anything else (including absent) -> undefined (no filter).
+  // Deliberately not z.coerce.boolean(), which treats the literal string
+  // "false" as truthy (any non-empty string coerces to true).
+  inStock: z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === "true")),
+  sort: z.enum(PRODUCT_SORTS).optional(),
 });
 
 export type GetProductsQuery = z.infer<typeof GetProductsQuerySchema>;
@@ -39,15 +66,18 @@ export type GetProductsResponse = {
 };
 
 /**
- * Query products with pagination, search, and filters.
+ * Query products with pagination, search, filters, and sort.
  *
  * Accepts:
  *   - page: 1-based page number (default 1)
- *   - limit: results per page, max 100 (default 20)
+ *   - limit: results per page, max 100 (default DEFAULT_PAGE_SIZE)
  *   - search: full-text search against product name, description, and brand
  *   - category: filter by category slug or name
- *   - brand: filter by brand (partial match)
+ *   - brand: filter by brand name (partial match against Brand.nameEn/nameSo,
+ *     post-HUB-26 relation filter, not a free-text column)
  *   - priceMin / priceMax: filter by price range (inclusive)
+ *   - inStock: when true, exclude products with stockQuantity <= 0
+ *   - sort: 'price_asc' | 'price_desc' | 'newest' (default) | 'rating' | 'popularity'
  *
  * Returns paginated results with total count and pagination metadata.
  * If filters are invalid or missing, they are ignored gracefully (no error).
@@ -57,14 +87,14 @@ export type GetProductsResponse = {
  * with proper parameter substitution.
  */
 export async function getProducts(query: GetProductsQuery): Promise<GetProductsResponse> {
-  const { page, limit, search, category, brand, priceMin, priceMax } = query;
+  const { page, limit, search, category, brand, priceMin, priceMax, inStock, sort } = query;
 
   // Defensive check: enforce max limit to prevent abuse
   if (limit > 100) {
     throw new Error("Limit exceeds maximum of 100 items per page");
   }
 
-  // Build Prisma where clause for all filters (category, brand, price).
+  // Build Prisma where clause for all filters (category, brand, price, stock).
   // These are always applied via Prisma's safe parameterized query builder.
   const where: Prisma.ProductWhereInput = { isActive: true };
 
@@ -77,9 +107,18 @@ export async function getProducts(query: GetProductsQuery): Promise<GetProductsR
     ];
   }
 
-  // --- Brand filter (partial match, case-insensitive)
+  // --- Brand filter (relation, partial match on either locale name,
+  // case-insensitive). Post-HUB-26: `brand` is the Brand relation, not a
+  // free-text column.
   if (brand) {
-    where.brand = { contains: brand, mode: "insensitive" };
+    where.brand = {
+      is: {
+        OR: [
+          { nameEn: { contains: brand, mode: "insensitive" } },
+          { nameSo: { contains: brand, mode: "insensitive" } },
+        ],
+      },
+    };
   }
 
   // --- Price range filter
@@ -92,6 +131,11 @@ export async function getProducts(query: GetProductsQuery): Promise<GetProductsR
     if (priceLte !== undefined) where.basePriceUsd.lte = priceLte;
   }
 
+  // --- Stock filter: exclude zero/negative stock when inStock=true
+  if (inStock === true) {
+    where.stockQuantity = { gt: 0 };
+  }
+
   // Pagination
   const skip = Math.max(0, (page - 1) * limit);
 
@@ -100,13 +144,18 @@ export async function getProducts(query: GetProductsQuery): Promise<GetProductsR
 
   // --- Full-text search via tsvector
   // When search is provided, we first get matching IDs from FTS, then apply
-  // all other filters via Prisma's safe query builder (no dynamic SQL).
+  // all other filters via Prisma's safe query builder (no dynamic SQL). The
+  // resulting `effectiveWhere` (below) is used for both the count and the
+  // eventual product fetch, regardless of which sort strategy is used.
+  let effectiveWhere: Prisma.ProductWhereInput = where;
+  let noMatches = false;
+
   if (search && search.trim()) {
     const searchQuery = search.trim();
 
-    // Step 1: Get ALL product IDs matching the FTS query (no pagination yet).
-    // This is the ONLY place we use raw SQL, and only for the tsvector operator
-    // which Prisma doesn't support. The search term is properly parameterized.
+    // Get ALL product IDs matching the FTS query (no pagination yet). This is
+    // the ONLY place we use raw SQL, and only for the tsvector operator which
+    // Prisma doesn't support. The search term is properly parameterized.
     const ftsMatches = await db.$queryRaw<Array<{ id: string }>>`
       SELECT DISTINCT p.id
       FROM products p
@@ -115,47 +164,34 @@ export async function getProducts(query: GetProductsQuery): Promise<GetProductsR
     `;
 
     if (ftsMatches.length === 0) {
-      // No FTS matches: return empty results
-      total = 0;
+      noMatches = true;
     } else {
-      // Step 2: Apply all other filters via Prisma's safe where clause.
-      // Use Prisma to filter the FTS-matched IDs by category, brand, price.
-      const searchWhereClause: Prisma.ProductWhereInput = {
-        ...where,
-        id: { in: ftsMatches.map((m) => m.id) },
-      };
+      effectiveWhere = { ...where, id: { in: ftsMatches.map((m) => m.id) } };
+    }
+  }
 
-      // Count total matching products after applying all filters
-      total = await db.product.count({ where: searchWhereClause });
+  if (noMatches) {
+    total = 0;
+  } else {
+    total = await db.product.count({ where: effectiveWhere });
 
-      // Fetch paginated results
-      if (total > 0) {
+    if (total > 0) {
+      if (sort === "rating" || sort === "popularity") {
+        results = await getProductsSortedByAggregate(effectiveWhere, sort, skip, limit);
+      } else {
         results = await db.product.findMany({
-          where: searchWhereClause,
+          where: effectiveWhere,
           include: {
             images: true,
             category: true,
+            brand: true,
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: resolveSimpleOrderBy(sort),
           skip,
           take: limit,
         });
       }
     }
-  } else {
-    // Standard query without FTS: use Prisma query builder for all operations.
-    total = await db.product.count({ where });
-
-    results = await db.product.findMany({
-      where,
-      include: {
-        images: true,
-        category: true,
-      },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: limit,
-    });
   }
 
   return {
@@ -165,4 +201,110 @@ export async function getProducts(query: GetProductsQuery): Promise<GetProductsR
     limit,
     hasMore: skip + limit < total,
   };
+}
+
+/** Prisma `orderBy` for the sort values that don't require aggregation. */
+function resolveSimpleOrderBy(
+  sort: ProductSort | undefined
+): Prisma.ProductOrderByWithRelationInput {
+  switch (sort) {
+    case "price_asc":
+      return { basePriceUsd: "asc" };
+    case "price_desc":
+      return { basePriceUsd: "desc" };
+    case "newest":
+    default:
+      return { createdAt: "desc" };
+  }
+}
+
+/**
+ * Sort by an aggregate (average rating or total units sold) that Prisma
+ * cannot express in a single `orderBy`. Strategy (architect-designed, HUB-25
+ * AC2): fetch every matching id (cheap — id + createdAt only, no
+ * pagination), aggregate scores via `groupBy`, sort in application code
+ * (ties broken by `createdAt desc` for deterministic pagination), slice the
+ * requested page of ids, then fetch and reorder that page's full records —
+ * Prisma's `id: { in: [...] }` does not preserve input order.
+ */
+async function getProductsSortedByAggregate(
+  where: Prisma.ProductWhereInput,
+  sort: "rating" | "popularity",
+  skip: number,
+  limit: number
+): Promise<ProductListItem[]> {
+  const idRows = await db.product.findMany({
+    where,
+    select: { id: true, createdAt: true },
+  });
+  const ids = idRows.map((r) => r.id);
+
+  const scoreMap = new Map<string, number>();
+  if (sort === "rating") {
+    const ratings = await db.review.groupBy({
+      by: ["productId"],
+      where: { productId: { in: ids }, isApproved: true },
+      _avg: { rating: true },
+    });
+    for (const r of ratings) scoreMap.set(r.productId, r._avg.rating ?? 0);
+  } else {
+    const quantities = await db.orderItem.groupBy({
+      by: ["productId"],
+      where: { productId: { in: ids }, order: { status: { not: "CANCELLED" } } },
+      _sum: { quantity: true },
+    });
+    for (const q of quantities) {
+      if (q.productId) scoreMap.set(q.productId, q._sum.quantity ?? 0);
+    }
+  }
+
+  const sorted = [...idRows].sort((a, b) => {
+    const scoreA = scoreMap.get(a.id) ?? 0;
+    const scoreB = scoreMap.get(b.id) ?? 0;
+    if (scoreB !== scoreA) return scoreB - scoreA; // highest score first
+    return b.createdAt.getTime() - a.createdAt.getTime(); // tie-break: newest first
+  });
+
+  const pageIds = sorted.slice(skip, skip + limit).map((r) => r.id);
+  if (pageIds.length === 0) return [];
+
+  const pageProducts = await db.product.findMany({
+    where: { id: { in: pageIds } },
+    include: { images: true, category: true, brand: true },
+  });
+
+  // Reorder to match `pageIds` — Prisma's `id: { in: [...] }` does not
+  // guarantee result order matches the input array.
+  const order = new Map(pageIds.map((id, i) => [id, i]));
+  return pageProducts.slice().sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
+
+/**
+ * Look up a single product by slug for the product detail page (U7).
+ *
+ * Returns raw `nameEn`/`nameSo` (and other bilingual fields) without
+ * resolving locale server-side, matching the convention established by
+ * `getProducts()` and `src/lib/locale-field.ts` (HUB-22): locale resolution
+ * happens at the render/serialization boundary via `localeField()` /
+ * `useLocaleField()`, not inside the data-access layer. The `locale`
+ * parameter is accepted for API symmetry with the rest of this module and
+ * for future callers that may want to log/vary by it, but is otherwise
+ * unused here.
+ */
+export async function getProductBySlug(
+  slug: string,
+  locale?: string
+): Promise<ProductWithRelations | null> {
+  void locale; // accepted for API symmetry; see doc comment above — resolution happens elsewhere.
+  return db.product.findUnique({
+    where: { slug },
+    include: {
+      images: true,
+      specs: true,
+      variants: true,
+      category: true,
+      brand: true,
+      manufacturer: true,
+    },
+  });
 }

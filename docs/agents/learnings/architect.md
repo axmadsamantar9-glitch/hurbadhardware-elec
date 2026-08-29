@@ -1,0 +1,7 @@
+# Architect Learnings
+
+## Template/Config Tables Should Stay Loosely Coupled to the Data They Inform
+
+**Symptom:** product-planning's investigation for HUB-27 recommended a strict FK from `ProductSpec.specTemplateKeyId` to a new per-category template table, reasoning that zero backfill risk meant "why not enforce integrity now."
+**Cause:** Zero backfill risk only argues that the _migration_ is cheap, not that the _relationship_ is right. A strict FK on ProductSpec would force every spec value to reference a category template row, which breaks the moment (a) a product needs a genuine one-off spec not in the template, or (b) an admin edits/retires a template key and now every product spec that pointed at it needs a migration decision. Templates are meant to _evolve independently_ of already-entered product data.
+**Rule going forward:** When a new "template" or "suggested values" table is proposed to firm up an existing free-text field, default to a loose/informational relationship (new table has no FK _from_ the existing data; it's read by the UI layer to prefill/suggest) unless the PRD explicitly requires every value to be drawn from a closed set. Reserve strict FKs for genuinely closed enumerations (e.g., Order -> OrderStatus), not admin-editable "typical values" tables. Use a stable `slug`-style identity field (not the translatable `*_en` field) for any uniqueness constraint on bilingual template rows, matching the Category/Brand/Product `slug` convention.

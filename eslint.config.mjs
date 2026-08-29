@@ -57,7 +57,7 @@ const eslintConfig = defineConfig([
   },
   // Allow console in logging infrastructure and scripts
   {
-    files: ["scripts/**/*.ts", "prisma/seed.ts", "src/lib/logger.ts"],
+    files: ["scripts/**/*.ts", "scripts/**/*.mjs", "prisma/seed.ts", "src/lib/logger.ts"],
     rules: {
       "no-console": "off",
     },
