@@ -110,6 +110,21 @@ enum FxQuote {
   @@map("fx_quote")
 }
 
+/// Fixed taxonomy of compatibility facts a product can carry (PRD §5.2).
+/// Unlike ProductSpec's free-text keyEn/keySo (which are deliberately
+/// open-ended and category-specific per HUB-27's loose-coupling rule), these
+/// five kinds are named directly by the PRD itself and are not admin-
+/// invented, so an enum is the right tool here rather than a free string.
+enum CompatibilityType {
+  DEVICE
+  CONNECTOR
+  OS_SUPPORT
+  POWER
+  CONSUMABLE
+
+  @@map("compatibility_type")
+}
+
 // ---------------------------------------------------------------------------
 // Identity — application user plus the three models @auth/prisma-adapter
 // requires (Account, Session, VerificationToken).
@@ -267,12 +282,12 @@ model SpecTemplateKey {
 }
 
 model Product {
-  id            String   @id @default(cuid())
-  nameEn        String   @map("name_en")
-  nameSo        String   @map("name_so")
-  slug          String   @unique
-  descriptionEn String?  @map("description_en")
-  descriptionSo String?  @map("description_so")
+  id             String   @id @default(cuid())
+  nameEn         String   @map("name_en")
+  nameSo         String   @map("name_so")
+  slug           String   @unique
+  descriptionEn  String?  @map("description_en")
+  descriptionSo  String?  @map("description_so")
   brandId        String?  @map("brand_id")
   manufacturerId String?  @map("manufacturer_id")
   /// Denormalized copy of brand.nameEn, kept in sync by two Postgres
@@ -281,15 +296,24 @@ model Product {
   /// AS column cannot join across tables — searchVector reads this
   /// column instead of brandId. Do not treat this as a public-facing
   /// field.
-  brandNameCache String? @map("brand_name_cache")
-  sku           String   @unique
-  basePriceUsd  Decimal  @map("base_price_usd") @db.Decimal(10, 2)
-  stockQuantity Int      @default(0) @map("stock_quantity")
-  categoryId    String   @map("category_id")
-  isActive      Boolean  @default(true) @map("is_active")
-  isFeatured    Boolean  @default(false) @map("is_featured")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  brandNameCache String?  @map("brand_name_cache")
+  sku            String   @unique
+  basePriceUsd   Decimal  @map("base_price_usd") @db.Decimal(10, 2)
+  stockQuantity  Int      @default(0) @map("stock_quantity")
+  categoryId     String   @map("category_id")
+  isActive       Boolean  @default(true) @map("is_active")
+  isFeatured     Boolean  @default(false) @map("is_featured")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  /// General bilingual compatibility warning that applies to the product as
+  /// a whole (e.g. "Fits most USB-C phones, but check voltage before use")
+  /// rather than to one specific CompatibilityAttribute row. Per-fact
+  /// warnings (e.g. "5V/1A only — 2A will damage older devices") live on
+  /// CompatibilityAttribute.warningEn/So instead — see that model's doc
+  /// comment for how the two levels are meant to be used together (HUB-28).
+  compatibilityWarningEn String? @map("compatibility_warning_en")
+  compatibilityWarningSo String? @map("compatibility_warning_so")
 
   /// Postgres `GENERATED ALWAYS AS (...) STORED` tsvector built from name_en,
   /// name_so, description_en and brand_name_cache. Managed by raw SQL, never
@@ -298,18 +322,19 @@ model Product {
   /// referencing brand_name_cache instead of brand).
   searchVector Unsupported("tsvector")? @map("search_vector")
 
-  category      Category         @relation(fields: [categoryId], references: [id])
-  brand         Brand?           @relation(fields: [brandId], references: [id], onDelete: SetNull)
-  manufacturer  Manufacturer?    @relation(fields: [manufacturerId], references: [id], onDelete: SetNull)
-  suppliers     ProductSupplier[]
-  images        ProductImage[]
-  specs         ProductSpec[]
-  variants      ProductVariant[]
-  reviews       Review[]
-  cartItems     CartItem[]
-  wishlists     Wishlist[]
-  orderItems    OrderItem[]
-  inventoryLogs InventoryLog[]
+  category                Category                 @relation(fields: [categoryId], references: [id])
+  brand                   Brand?                   @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  manufacturer            Manufacturer?            @relation(fields: [manufacturerId], references: [id], onDelete: SetNull)
+  suppliers               ProductSupplier[]
+  images                  ProductImage[]
+  specs                   ProductSpec[]
+  compatibilityAttributes CompatibilityAttribute[]
+  variants                ProductVariant[]
+  reviews                 Review[]
+  cartItems               CartItem[]
+  wishlists               Wishlist[]
+  orderItems              OrderItem[]
+  inventoryLogs           InventoryLog[]
 
   @@index([categoryId])
   @@index([isActive])
@@ -393,6 +418,9 @@ model ProductImage {
   altEn     String? @map("alt_en")
   altSo     String? @map("alt_so")
   position  Int     @default(0)
+  /// At most one row per product may have isPrimary = true, enforced by a
+  /// Postgres partial unique index Prisma cannot express in schema.prisma —
+  /// see prisma/manual-sql/004_product_image_primary_unique.sql (HUB-28).
   isPrimary Boolean @default(false) @map("is_primary")
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -427,6 +455,50 @@ model ProductSpec {
 
   @@index([productId])
   @@map("product_specs")
+}
+
+/// A single compatibility fact about a product (HUB-28 / PRD §5.2): a
+/// compatible device/model, a connector type, an OS-support level, a
+/// voltage/current requirement, or a compatible consumable (e.g. a
+/// replacement cartridge). One flexible table with a fixed `type` enum was
+/// chosen over five separate typed tables (CompatibleDevice, ConnectorType,
+/// etc.) because:
+///   1. All five kinds share the exact same shape — a bilingual label plus
+///      an optional per-fact warning — so typed tables would just be five
+///      copies of the same three columns with no behavioural difference.
+///   2. "Queryable for future 'fits your device' filtering" only needs
+///      `WHERE type = 'DEVICE' AND value_slug = '...'`, which one indexed
+///      table answers as well as five would.
+///   3. Unlike ProductSpec, the `type` field is a closed PRD-defined
+///      taxonomy (not admin-invented free text), so it's safe to model as
+///      an enum without repeating HUB-27's "don't over-constrain" concern.
+///
+/// `valueSlug` is the stable, locale-independent identity used for matching
+/// (e.g. "iphone-15", "usb-c", "android-12-plus"), mirroring the
+/// Category/Brand/SpecTemplateKey `slug`/`keySlug` convention — valueEn/So
+/// remain the human-readable, editable labels.
+///
+/// `warningEn`/`warningSo` hold a warning specific to THIS fact (e.g. "fits
+/// physically but voltage mismatch will damage device"). A warning that
+/// applies to the product as a whole, not to one specific fact, belongs on
+/// Product.compatibilityWarningEn/So instead.
+model CompatibilityAttribute {
+  id        String            @id @default(cuid())
+  productId String            @map("product_id")
+  type      CompatibilityType
+  valueSlug String            @map("value_slug")
+  valueEn   String            @map("value_en")
+  valueSo   String            @map("value_so")
+  warningEn String?           @map("warning_en")
+  warningSo String?           @map("warning_so")
+  sortOrder Int               @default(0) @map("sort_order")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, type, valueSlug])
+  @@index([productId])
+  @@index([type, valueSlug])
+  @@map("compatibility_attributes")
 }
 
 model ProductVariant {
@@ -664,14 +736,20 @@ model WhatsappSession {
 }
 
 model InventoryLog {
-  id        String   @id @default(cuid())
-  productId String   @map("product_id")
-  variantId String?  @map("variant_id")
+  id            String   @id @default(cuid())
+  productId     String   @map("product_id")
+  variantId     String?  @map("variant_id")
   /// Signed change: negative on sale, positive on restock.
-  delta     Int
-  reason    String
-  createdBy String?  @map("created_by")
-  createdAt DateTime @default(now()) @map("created_at")
+  delta         Int
+  reason        String
+  /// Optional pointer to the entity that caused this adjustment (e.g. an
+  /// order line item on sale, a purchase order on receiving). Free-text
+  /// type + id pair, mirroring AuditLog's entityType/entityId — not a FK,
+  /// since the referenced entity type varies by reason.
+  referenceType String?  @map("reference_type")
+  referenceId   String?  @map("reference_id")
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
 
   product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
@@ -693,7 +771,7 @@ model InventoryLog {
 /// (e.g. `order.status_change`, `warranty.override`) — an enum would force
 /// every unrelated future feature's migration to also touch this table.
 model AuditLog {
-  id     String  @id @default(cuid())
+  id      String  @id @default(cuid())
   /// Null only for actions with no human actor; every action currently listed
   /// in this issue's policy is admin-triggered, so this is nullable for
   /// forward compatibility, not because a real case needs it yet.
@@ -703,8 +781,8 @@ model AuditLog {
   entityType String @map("entity_type")
   entityId   String @map("entity_id")
 
-  before Json? @db.JsonB
-  after  Json? @db.JsonB
+  before Json?   @db.JsonB
+  after  Json?   @db.JsonB
   reason String?
 
   correlationId String?  @map("correlation_id")

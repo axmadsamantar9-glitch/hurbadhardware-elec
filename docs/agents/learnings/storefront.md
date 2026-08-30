@@ -1,5 +1,36 @@
 # Storefront Agent — Durable Learnings
 
+## `vitest run` does not load `.env` — a live-DB test silently no-ops without `dotenv/config`
+
+**Symptom:** A test file written to exercise a real concurrency invariant
+against the actual dev Postgres DB (HUB-29, `src/lib/inventory.live.test.ts`)
+used a `describe.skip`-if-no-`DATABASE_URL` guard as a sandbox-safety
+fallback. On first run under `npx vitest run`, the guard tripped and the
+entire suite silently skipped ("3 skipped") even in the normal dev
+environment where `.env` has a real `DATABASE_URL` — because unlike
+`next dev`/`next build` and the `prisma` CLI (which both auto-load `.env`),
+plain `vitest run` does not populate `process.env` from `.env` at all.
+`src/lib/db.ts`'s `new PrismaClient()` reads `process.env.DATABASE_URL`
+directly, so any test file that imports the real (unmocked) `db` singleton
+needs the variable present before that import executes.
+
+**Cause:** Vite/Vitest's built-in env loading (`loadEnv`) only ever targets
+`import.meta.env`, and only for `VITE_`-prefixed keys unless `envPrefix` is
+reconfigured — it does not touch `process.env`, which is what
+`@prisma/client` and most Node-side code actually read.
+
+**Rule going forward:** Any test file that intentionally hits the real DB
+(unmocked `@/lib/db`) must `import "dotenv/config";` as its first import,
+before importing `@/lib/db` or any module that transitively imports it.
+`dotenv` is already present as a transitive dependency (via `prisma`/
+`next`), so no new package install is needed — just the explicit import.
+Keep a `describe.skip`-if-env-missing guard as defense-in-depth for
+sandboxes with genuinely no DB access, but don't rely on it as the _only_
+thing gating whether the test runs for real — verify with a live run (not
+just "0 errors") that the test count that executed matches what you
+expect, since a silently-skipped suite reports as "passed" with 0
+assertions, not as a failure.
+
 ## Tailwind v4 base-shade brand colors fail AA text contrast on dark backgrounds
 
 **Symptom:** A brand color shade (e.g. blue-600 `#1D4ED8`) that passes WCAG AA
@@ -341,6 +372,29 @@ produced exactly 35 rows (5+5+5+3+4+5+4+4) matching the per-category key
 counts, confirmed by a direct `specTemplateKey.findMany` + group-by-slug
 query — don't trust the seed script's own summary line alone for a new
 table, spot-check the actual grouped content at least once.
+
+## Mocking NextAuth's `auth()` export in a route test needs an explicit cast
+
+**Symptom:** `vi.mocked(auth).mockResolvedValue(null)` in a Route Handler
+test (`src/app/api/admin/uploads/presign/route.test.ts`) failed
+`npm run typecheck` with `Argument of type 'null' is not assignable to
+parameter of type 'NextMiddleware'` — even though the route only ever calls
+`auth()` as a plain `() => Promise<Session | null>` function.
+
+**Cause:** `auth` (from `src/auth.ts`, NextAuth v5's `NextAuth(...)` return
+value) is deliberately overloaded — it can also be invoked as Next.js
+middleware (`auth(request)`), and TypeScript's overload resolution for
+`vi.mocked(...).mockResolvedValue(...)` picks whichever overload signature
+makes the mock's inferred type ambiguous, landing on the middleware
+overload instead of the plain-session one.
+
+**Rule going forward:** When mocking `@/auth`'s `auth` export in a test,
+don't call `vi.mocked(auth)` directly — declare the narrow signature you
+actually need and cast: `const mockedAuth = auth as unknown as
+ReturnType<typeof vi.fn<() => Promise<Session | null>>>`, then call
+`mockedAuth.mockResolvedValue(...)`. This sidesteps the overload-resolution
+ambiguity entirely rather than sprinkling `as any`/`as unknown as Session`
+casts at every call site.
 
 ## `x || "literal"` fallback silently defeats a zod `.default()` downstream
 

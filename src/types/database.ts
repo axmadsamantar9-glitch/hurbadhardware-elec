@@ -16,6 +16,7 @@ export type {
   Cart,
   CartItem,
   Category,
+  CompatibilityAttribute,
   Coupon,
   FxRate,
   InventoryLog,
@@ -43,6 +44,7 @@ export type {
 // (e.g. `role === Role.ADMIN`, or as Zod `z.nativeEnum(...)` inputs).
 
 export {
+  CompatibilityType,
   CountryCode,
   CouponType,
   Currency,

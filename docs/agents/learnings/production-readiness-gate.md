@@ -689,3 +689,53 @@ For a purely-additive, zero-consumer schema ticket (new model + data-layer funct
 **Status:** ✅ VERIFIED
 **Date:** 2026-08-29
 **All 10 Production-Readiness Gates:** GREEN (including independently-verified migration integrity, live-query dogfood substitute, and scope-integrity-by-absence)
+
+## HUR-181 / HUB-28: Product Variants (2026-08-30)
+
+### Global admin-route auth is enforced by proxy (middleware), not just the route handler — live curl shows 307, not 401
+
+**Symptom:** Task brief expected `curl` (no session cookie) against `/api/admin/uploads/presign` to return 401 live. Live behavior is `307 Temporary Redirect` to `/en/auth/signin?callbackUrl=...`.
+
+**Cause:** `src/proxy.ts` (Next.js 16's middleware, renamed from `middleware.ts`) does `pathname.includes("/admin")` and redirects any unauthenticated request before it ever reaches the route handler — this covers `/api/admin/*` too, not just page routes. The route handler's own `auth()` → 401 JSON branch is real and correct, but in live HTTP traffic it's only reachable once proxy's own auth gate has already passed (i.e., only for authenticated-but-wrong-role or already-passed-auth edge cases the route re-checks defensively). The route-level 401 is verified directly by `route.test.ts` calling the handler function in isolation, bypassing proxy.
+
+**Rule going forward:** When live-verifying an admin API route's "unreachable without auth" security property, expect a redirect (307 to signin) from global proxy first, not a bare 401 from the route — confirm inaccessibility by end state (never reaches business logic / no data returned), not by exact status code. Cross-check the route's own 401 branch via its unit test (calling the handler directly) rather than expecting curl to reproduce it live in this codebase.
+
+### bcrypt hashing test is flaky under `vitest run --coverage` (v8 instrumentation CPU load)
+
+**Symptom:** `src/lib/auth-utils.test.ts` — "rejects wrong password against hash" / "rejects empty password against hash" — intermittently time out at the default 5000ms timeout only when coverage instrumentation is enabled (v8 coverage adds real CPU overhead to bcrypt's compare calls). Same tests pass reliably in isolation or with a bumped `--testTimeout`.
+
+**Rule going forward:** Don't treat an isolated bcrypt-related timeout failure under `test:coverage` as a real regression — re-run the single file in isolation and/or with a higher `--testTimeout` before concluding the suite is broken. If this keeps recurring, the fix belongs in `vitest.config.ts` (raise `testTimeout` globally or exclude auth-utils.test.ts from coverage's CPU contention), not in application code.
+
+## HUR-182/HUB-29: Inventory Management (2026-08-30)
+
+### All Gates Passed — Item Verified; 3rd independent live-DB concurrency re-run, no durable security-reviewer.md entry (recurring gap)
+
+**Verification Date:** 2026-08-30
+**Item:** HUR-182 (HUB-29) — Inventory Management. Atomic `adjustStock()` (guarded raw-SQL UPDATE inside `db.$transaction`, InventoryLog write in the same transaction), 4 reason-scoped wrappers, `isLowStock()`. Additive `reference_type`/`reference_id` (nullable) on `inventory_logs`.
+
+**Gate Results:** Build ✓ (Turbopack, 13 routes, no new inventory route — data-layer only). Lint ✓ (0 errors, 6 pre-existing unrelated warnings). Typecheck ✓. Tests: first coverage run hit the now well-documented `auth-utils.test.ts` bcrypt-cost-12-under-v8-coverage-instrumentation flake (4 failed); immediate re-run came back clean 498/498, coverage 90.42%/83.54%/93.4%/90.7% (all above 80/70 thresholds; `inventory.ts` itself 100% stmts/funcs/lines, 92.68% branches — uncovered branches are defensive `?? null` short-circuits). Matches qa-test's independently-reported numbers exactly.
+
+**Security — independently re-verified myself; no durable security-reviewer.md entry exists for HUB-29 (recurring gap, same pattern as HUR-13/HUR-177/HUB-24/HUB-27):** Read `src/lib/inventory.ts` directly. Confirmed `adjustStock()`'s `$executeRaw` calls are genuine tagged-template parameterization (`${delta}`, `${variantId}`/`${productId}` interpolated by Prisma's tag function, no string concatenation). Confirmed the negative-stock guard (`AND stock_quantity + ${delta} >= 0`) is in the _same_ SQL statement as the UPDATE — a single atomic conditional write, not a read-then-write check in application code. Confirmed the `InventoryLog` create and the stock UPDATE both execute inside one `db.$transaction(async (tx) => {...})` callback, so a rejection (0 rows affected → throw) never leaves a residual log row, and a commit always has both or neither. Grepped for secret/credential patterns in `inventory.ts`/`inventory.test.ts`/`inventory.live.test.ts` — none found.
+
+**Concurrency — ran `inventory.live.test.ts` myself against the live DB (3rd independent verification of this specific claim, after builder and qa-test):** `npx vitest run src/lib/inventory.live.test.ts --testTimeout=20000` → 3/3 passed. The 2-way race (stock=5, two concurrent `-4` decrements) resolved to exactly 1 fulfilled / 1 rejected (`InsufficientStockError`), final stock=1 (non-negative), exactly 1 InventoryLog row written (proving transactional atomicity, not just the SQL guard, since a naive guard-only implementation could still double-write logs). The 5-way race (stock=6, five concurrent `-3` decrements, only 2 affordable) resolved to exactly 2 fulfilled / 3 rejected, final stock=0. These are the exact same fulfilled/rejected/final-stock numbers the builder and qa-test each independently reported — three separate runs, same live DB, same result.
+
+**Migration integrity — independently verified against the live DB with my own throwaway script (deleted after use, confirmed via `git status` no residue):** `information_schema.columns` for `inventory_logs` confirmed exactly 9 columns including `reference_id`/`reference_type`, both `text`, both `is_nullable='YES'` (zero backfill risk, matches the migration's stated additive-only intent). Cross-table query confirmed those two column names exist on `inventory_logs` only — no other table was touched by this migration.
+
+**Scope integrity:** `grep -rn "reservedQuantity|reservation|Warehouse|transfer"` across `src/lib/inventory.ts` and `src/app/api/` returns only the module's own doc-comment lines explicitly _deferring_ those to HUB-37/38 and HUB-30 — no actual reservation/warehouse/transfer code exists. `find src -iname "*inventory*"` returns only the 3 expected files (`inventory.ts`, `.test.ts`, `.live.test.ts`) — no admin UI, no PO-linked receiving route. Confirmed by absence, not by trusting the ledger note alone.
+
+**Dogfood:** No dedicated dogfood script exists for this ticket (correctly — data-layer only, no new HTTP route). Started `npm run dev`, curled `/en` (200), `/so` (200), `/en/admin` unauthenticated (307 — RBAC intact); `/api/health` returned 503 (unreachable), the same pre-existing dev-server-only Prisma singleton connectivity quirk documented in the HUB-26 learnings entry (a standalone `npx tsx` script using the identical `.env` in the same session connected and queried successfully, proving it's not a regression from this diff).
+
+**Note on dirty working tree:** As with every recent session, the tree carried concurrent HUB-27 (compatibility attributes) and HUB-28 (product-image-primary constraint, admin uploads/presign) diffs alongside HUB-29's. Isolated HUB-29's actual footprint to: `prisma/schema.prisma`'s `InventoryLog.referenceType/referenceId` fields, the new `20260830072549_add_inventory_log_reference_fields` migration, `src/lib/inventory.ts` + its two test files. Did not re-litigate the other two workstreams (out of this ticket's scope).
+
+### Rule Going Forward
+
+When a live concurrency claim has already been verified twice (builder + qa-test) with exact fulfilled/rejected/final-stock numbers, the gate's own re-run should assert on those exact same numbers, not just "did it pass" — a flaky implementation could pass with different numbers each time (e.g. 2 fulfilled instead of 1) and still show green. Getting bit-for-bit identical outcomes across three independent runs on a live DB is much stronger evidence of a genuinely atomic guard than three separate "PASS" reports would be.
+
+---
+
+## Summary
+
+**Item:** HUR-182/HUB-29 — Inventory Management
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-30
+**All 10 Production-Readiness Gates:** GREEN (including independently-verified migration integrity, 3rd-independent-run concurrency re-verification with matching exact outcomes, and scope-integrity-by-absence)

@@ -12,7 +12,7 @@
  * through a float on its way into a Decimal column.
  */
 
-import { PrismaClient, CouponType, Locale, Role } from "@prisma/client";
+import { PrismaClient, CouponType, Locale, Role, CompatibilityType } from "@prisma/client";
 import { hashSync } from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -44,6 +44,15 @@ type SeedSpecTemplateKey = {
   keyEn: string;
   keySo: string;
   isMandatory: boolean;
+};
+
+type SeedCompatibilityAttribute = {
+  type: CompatibilityType;
+  valueSlug: string;
+  valueEn: string;
+  valueSo: string;
+  warningEn?: string;
+  warningSo?: string;
 };
 
 /**
@@ -194,6 +203,51 @@ const SPEC_TEMPLATES: Record<string, SeedSpecTemplateKey[]> = {
       keyEn: "Compatibility",
       keySo: "La-jaanqaadka",
       isMandatory: false,
+    },
+  ],
+};
+
+/**
+ * Compatibility facts (HUB-28 / PRD §5.2) for a handful of representative
+ * products, keyed by product slug (the stable natural key, same convention
+ * as SPEC_TEMPLATES being keyed by category slug — see seedCompatibilityAttributes
+ * for why the real id can't be known until seedCategoriesAndProducts() has
+ * run). Not every seeded product needs a row here; this is intentionally a
+ * sparse illustrative set, not full catalog coverage.
+ */
+const COMPATIBILITY_ATTRIBUTES: Record<string, SeedCompatibilityAttribute[]> = {
+  "ugreen-100w-usb-c-gan-charger": [
+    {
+      type: CompatibilityType.POWER,
+      valueSlug: "5v-3a-9v-3a-12v-3a-15v-3a-20v-5a-100w-max",
+      valueEn: "5V/3A, 9V/3A, 12V/3A, 15V/3A, 20V/5A (100W max)",
+      valueSo: "5V/3A, 9V/3A, 12V/3A, 15V/3A, 20V/5A (ugu badnaan 100W)",
+      warningEn:
+        "Delivers up to 100W via USB Power Delivery. Older, non-PD devices only negotiate a safe lower voltage automatically, but always confirm your device supports USB-C PD fast charging before use — plugging in non-PD hardware rated well below these outputs can cause overheating.",
+      warningSo:
+        "Wuxuu bixiyaa ilaa 100W isagoo adeegsanaya USB Power Delivery. Qalabka duugga ah ee aan lahayn PD wuxuu si toos ah u doortaa voltage hoose oo ammaan ah, laakiin had iyo jeer hubi in qalabkaagu taageerayo USB-C PD dallac degdeg ah ka hor inta aadan isticmaalin — qalab aan PD lahayn oo heerkiisu ka hooseeyo tirooyinkan ayaa keeni kara kulaylka xad-dhaafka ah.",
+    },
+    {
+      type: CompatibilityType.CONNECTOR,
+      valueSlug: "usb-c",
+      valueEn: "USB-C",
+      valueSo: "USB-C",
+    },
+  ],
+  "samsung-galaxy-a55-5g-128gb": [
+    {
+      type: CompatibilityType.CONNECTOR,
+      valueSlug: "usb-c",
+      valueEn: "USB-C",
+      valueSo: "USB-C",
+    },
+  ],
+  "epson-ecotank-l3250-all-in-one": [
+    {
+      type: CompatibilityType.CONSUMABLE,
+      valueSlug: "epson-003-ink-bottles",
+      valueEn: "Epson 003 refill ink bottles (Black, Cyan, Magenta, Yellow)",
+      valueSo: "Dhalooyinka khadka dib-buuxinta ee Epson 003 (Madow, Cyan, Magenta, Jaale)",
     },
   ],
 };
@@ -811,6 +865,52 @@ async function seedSpecTemplates(): Promise<void> {
   }
 }
 
+/**
+ * Upsert each product's compatibility facts, keyed by (productId, type,
+ * valueSlug) per the model's `@@unique([productId, type, valueSlug])`.
+ * Requires seedCategoriesAndProducts() to have already run so every
+ * COMPATIBILITY_ATTRIBUTES slug resolves to a real Product row — mirrors
+ * seedSpecTemplates()'s slug-then-findUnique pattern (HUB-27 convention).
+ */
+async function seedCompatibilityAttributes(): Promise<void> {
+  for (const [slug, attributes] of Object.entries(COMPATIBILITY_ATTRIBUTES)) {
+    const product = await prisma.product.findUnique({ where: { slug } });
+    if (!product) {
+      console.warn(`Skipping compatibility attributes for unknown product slug "${slug}"`);
+      continue;
+    }
+
+    for (const [index, attribute] of attributes.entries()) {
+      await prisma.compatibilityAttribute.upsert({
+        where: {
+          productId_type_valueSlug: {
+            productId: product.id,
+            type: attribute.type,
+            valueSlug: attribute.valueSlug,
+          },
+        },
+        update: {
+          valueEn: attribute.valueEn,
+          valueSo: attribute.valueSo,
+          warningEn: attribute.warningEn ?? null,
+          warningSo: attribute.warningSo ?? null,
+          sortOrder: index,
+        },
+        create: {
+          productId: product.id,
+          type: attribute.type,
+          valueSlug: attribute.valueSlug,
+          valueEn: attribute.valueEn,
+          valueSo: attribute.valueSo,
+          warningEn: attribute.warningEn ?? null,
+          warningSo: attribute.warningSo ?? null,
+          sortOrder: index,
+        },
+      });
+    }
+  }
+}
+
 async function seedAdminUser(): Promise<void> {
   const passwordHash = hashSync(ADMIN_PASSWORD, 12);
 
@@ -903,6 +1003,9 @@ async function main(): Promise<void> {
   console.log("Seeding spec templates…");
   await seedSpecTemplates();
 
+  console.log("Seeding compatibility attributes…");
+  await seedCompatibilityAttributes();
+
   console.log("Seeding admin user…");
   await seedAdminUser();
 
@@ -912,16 +1015,18 @@ async function main(): Promise<void> {
   console.log("Seeding coupons…");
   await seedCoupons();
 
-  const [categories, products, images, coupons, specTemplateKeys] = await Promise.all([
-    prisma.category.count(),
-    prisma.product.count(),
-    prisma.productImage.count(),
-    prisma.coupon.count(),
-    prisma.specTemplateKey.count(),
-  ]);
+  const [categories, products, images, coupons, specTemplateKeys, compatibilityAttributes] =
+    await Promise.all([
+      prisma.category.count(),
+      prisma.product.count(),
+      prisma.productImage.count(),
+      prisma.coupon.count(),
+      prisma.specTemplateKey.count(),
+      prisma.compatibilityAttribute.count(),
+    ]);
 
   console.log(
-    `Seed complete: ${categories} categories, ${products} products, ${images} images, ${coupons} coupons, ${specTemplateKeys} spec template keys.`
+    `Seed complete: ${categories} categories, ${products} products, ${images} images, ${coupons} coupons, ${specTemplateKeys} spec template keys, ${compatibilityAttributes} compatibility attributes.`
   );
 }
 

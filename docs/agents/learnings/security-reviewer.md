@@ -1,5 +1,23 @@
 # Security Reviewer Agent — Learnings
 
+## HUB-29: Inventory Ledger — Atomic Guarded UPDATE, createdBy Trust Boundary (2026-08-30)
+
+**Summary:** Reviewed `src/lib/inventory.ts`'s `adjustStock()`, the first `$executeRaw` (not `$queryRaw`) usage this session, implementing PRD §52 Rule #3 (no oversell under concurrency). Confirmed the raw UPDATE uses genuine tagged-template parameterization (no string concatenation/interpolation), the oversell guard (`stock_quantity + delta >= 0`) is inside the same SQL WHERE clause as the UPDATE (atomic, no TOCTOU read-then-write gap), and the `InventoryLog` write + stock UPDATE run in one `$transaction` (confirmed via the live tests: a rejected concurrent call leaves zero residual InventoryLog rows, proving rollback works, not just the success path).
+
+**Finding (Medium, forward-looking, not a defect in this diff):** `adjustStock()`'s `createdBy` parameter is written straight to `InventoryLog` with no validation that it corresponds to the actual authenticated caller — safe today only because nothing calls this function yet from an untrusted context (confirmed via grep — zero callers outside `inventory.ts` and its own tests).
+
+**Rule going forward:** When this function (or any function taking an actor-attribution field like `createdBy`/`actorId`) is eventually wired to a real endpoint (checkout, admin API), verify at that time that the value is derived server-side from the session (`auth()`/`session.user.id`), never accepted as a raw client-supplied request-body field. Flag this explicitly in that future review — don't let a "wire it up later" TODO become a silent trust-boundary violation once a caller exists.
+
+**Process note:** This entry itself is being added retroactively by the orchestrator after production-readiness-gate flagged that no HUB-29 entry existed in this file despite the review being reported as GREEN with this finding — the 5th recurring instance of security-reviewer's findings not landing in the durable record on the first pass (see HUR-13/HUR-177/HUB-24/HUB-27 for prior occurrences). Security-reviewer sessions: write findings to this file as part of finishing the review, not just in handoff prose.
+
+## HUB-28: R2 Presigned Upload Route — PUT-based Presigning Doesn't Enforce Declared Size (2026-08-30)
+
+**Symptom:** Route validates client-declared `sizeBytes` before generating a presigned URL, but nothing prevents the client from uploading a larger file than declared once it has the URL.
+
+**Cause:** `src/lib/uploads/r2.ts`'s `generatePresignedUploadUrl()` uses `PutObjectCommand` + `getSignedUrl` (presigned PUT), which only signs Bucket/Key/ContentType — no size constraint is bindable into a presigned PUT signature. S3-compatible presigned POST (`content-length-range` policy condition) is the mechanism that actually enforces this server-side; it wasn't used here.
+
+**Rule going forward:** For any future presigned-upload flow (R2/S3), treat a client-declared `sizeBytes` check as advisory-only unless the presigning method used is confirmed to support a bound condition (e.g., presigned POST's `content-length-range`). Flag PUT-based presigning without such a condition as at least Medium if the endpoint is trust-boundary-crossing (admin-only lowers severity vs. a public upload endpoint, but doesn't eliminate the gap).
+
 ## HUB-26: Brand/Manufacturer/Supplier Schema Migration — Supplier Isolation (2026-08-29)
 
 **Summary:** Reviewed the first genuine schema-migration diff this session (new Brand/Manufacturer/Supplier/ProductSupplier models, dropped legacy `Product.brand` string column, trigger-maintained `brand_name_cache` + rebuilt `search_vector`). Core requirement: supplier data must never reach a public response. Verified clean: `toPublicProduct()`/`toPublicProducts()` (src/lib/api/serialize-product.ts) runtime-delete `suppliers` as defense-in-depth even though no current query includes it; the claimed test suite constructs mocks with fully nested supplier PII (contactName/Email/Phone) and asserts via `JSON.stringify(result)).not.toMatch(/supplier/i)` — not a shallow/tautological check. All 4 public routes and their underlying Prisma calls confirmed to never `include: { suppliers: true }`. `grep -ri suppliers src/` found the relation touched only in serialize-product.ts/.test.ts and the type re-export — no other code path.
