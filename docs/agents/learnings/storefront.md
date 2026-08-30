@@ -454,6 +454,89 @@ gap whenever seed data for variants eventually lands (verify the selector
 against actual seeded storage/color combinations at that point, not just
 the unit tests).
 
+## Bash tool heredocs silently fail (`unexpected EOF while looking for matching` `''`) on long file content containing apostrophes/possessives — split into chunks
+
+**Symptom:** Writing `filter-sidebar.tsx` (HUR-187, ~250 lines) via
+`cat > file << 'EOF' ... EOF` failed with
+`/usr/bin/bash: -c: line N: unexpected EOF while looking for matching `''`,
+even after removing every apostrophe/contraction from the comment text (the
+first suspect, since the Bash tool appeared to wrap the whole command in an
+outer single-quoted string). The identical heredoc content, when split into
+~30-40 line chunks written to separate scratch files and then `cat`-concatenated
+into the destination, wrote correctly on the first try — with no content
+changes at all versus the failing single-shot attempt.
+
+**Cause:** Not actually apostrophes (multiple apostrophe-free rewrites still
+failed identically) — the practical trigger is long/complex multi-line
+heredoc payloads passed through this environment's Bash tool, which appears
+to have some length- or complexity-related limit distinct from a normal
+POSIX shell. Bisecting by chunk size (not by removing specific characters)
+is the correct diagnostic approach, not guessing at "bad characters."
+
+**Rule going forward:** For any new file whose content is a large
+multi-line heredoc (a full React component, a long test file, etc.), write
+it in ~150-200 line chunks to separate scratch files in the scratchpad
+directory (`cat > "$SCRATCHPAD/chunkN.txt" << 'EOF' ... EOF`, each chunk
+individually well under the failure threshold), then join them into the
+real destination with a single `cat chunk1 chunk2 ... > destination`. Don't
+waste time trying to hand-edit apostrophes/quotes out of the content first
+— that was a red herring here. After joining, always `Read` the resulting
+file back once to confirm no boundary lines were dropped/duplicated at the
+chunk seams (missing blank lines between chunks are cosmetic and fixable
+with a couple of targeted `Edit` calls, not a full rewrite).
+
+## React Compiler ESLint rules (`react-hooks/set-state-in-effect`, `preserve-manual-memoization`) reject the naive "sync local state from a URL-derived prop" `useEffect` pattern
+
+**Symptom:** HUR-187's `SearchBar` and `FilterSidebar` both needed to reset
+local component state (search input text, price-range inputs, mobile drawer
+open/closed) whenever the URL's search params changed from _outside_ the
+component (browser back/forward, a "clear filters" click elsewhere, another
+filter changing the URL). The obvious `useEffect(() => setValue(x), [x])`
+pattern is a hard ESLint **error** in this repo's config
+(`react-hooks/set-state-in-effect`), not a warning — `npx eslint` fails the
+build on it. Fixing that by wrapping the reset handler in `useCallback(...,
+[])` and calling it from the effect then hit a second, unrelated error:
+`react-hooks/preserve-manual-memoization` ("Compilation Skipped... inferred
+dependency was `setIsOpen`, but the source dependencies were []") — the
+React Compiler could not reconcile the `useCallback([])` against a
+component that also does an unrelated render-time `setState` call elsewhere
+in the same render (the "adjust during render" block itself, which is the
+_correct_ pattern here — see below).
+
+**Cause:** This repo already established (in `CategoryNav`, pre-HUR-187)
+the correct fix for "sync state when an external value changes": adjust
+state **during render**, not in an effect — track the previous value of the
+external input in its own `useState`, and if it differs from the current
+render's value, call the setter(s) directly in the render body (before the
+JSX return), guarded by `if (external !== lastExternal) { setLastExternal
+(...); setX(...); }`. This is React's documented "you might not need an
+effect" derived-state pattern. `CategoryNav`'s existing `closeMenu =
+useCallback(..., [])` lints clean because it's the _only_ place calling
+`setIsOpen`; as soon as a component also has a render-time-adjustment block
+that calls the same setter (`FilterSidebar`'s drawer-close-on-filter-change
+logic), the compiler's manual-memoization check for a _separate_
+`useCallback` referencing that setter can get confused and skip
+optimization even though the code is logically correct.
+
+**Rule going forward:** (1) Never write `useEffect(() => setState(...), [dep])`
+purely to mirror an external/derived value into local state — always use
+the render-time-adjustment pattern (`lastX` shadow state + conditional
+setState in the render body), matching `CategoryNav`'s `lastPathname`
+precedent. (2) If a component has such a render-time-adjustment block that
+sets a piece of state (e.g. `setIsOpen`), and a _different_ handler
+elsewhere in the same component also needs to set that same piece of state
+(e.g. a "close" button), don't wrap that second handler in `useCallback`
+with an empty dependency array — leave it as a plain (non-memoized)
+function, and if it's a `useEffect` dependency, inline the state-setting
+logic directly inside that effect instead of calling the outside function,
+so the effect's own dependency array doesn't need to include a
+non-memoizable reference. (3) Always run `npx eslint <changed files>`
+(not just `tsc --noEmit`) on new "use client" components before considering
+them done — both of these are `error`-level in this repo's flat config, not
+`warn`, and neither is caught by TypeScript alone. See
+`src/components/storefront/search-bar.tsx` and
+`src/components/storefront/filter-sidebar.tsx` for the resulting pattern.
+
 ## `x || "literal"` fallback silently defeats a zod `.default()` downstream
 
 **Symptom:** `src/app/api/products/route.ts`'s `parseQueryParams()` had

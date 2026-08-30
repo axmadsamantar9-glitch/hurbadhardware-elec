@@ -748,3 +748,37 @@ When a live concurrency claim has already been verified twice (builder + qa-test
 **Item:** HUB-33 (HUR-16) — Customer Storefront: homepage, category pages, PDP, image gallery, variant selector, spec sheet, compatibility warnings.
 
 **Rule going forward:** When a security fix lands as a targeted diff on top of an already-committed feature commit, diff against the feature's _pre-feature_ parent commit (not just the post-feature base named in the handoff) to review the entire feature's file scope in one pass — otherwise a narrow "uncommitted work" diff (here, just 7 files for the XSS fix) can look deceptively small and hide that the real thing being gated is a 30-file, ~1650-line feature already sitting in a single prior commit. `git diff <base>~1 -- .` surfaced the true scope; `git diff <base> -- .` alone would have missed reviewing 23 of the 30 files.
+
+## HUB-34/HUR-187: Search and Filtering (2026-08-30)
+
+### All Gates Passed — Item Verified; independently reproduced Infinity-price fix and confirmed no new dangerouslySetInnerHTML/raw-SQL surface
+
+**Verification Date:** 2026-08-30
+**Item:** HUB-34 (HUR-187) — Search and Filtering: search bar (debounced), filter sidebar (category/brand/price/in-stock), sort dropdown (newest/price_asc/price_desc/rating/popularity), wired into homepage + category pages built under HUR-16. Pure URL<->state helpers in `src/lib/storefront/query-state.ts` (hook-free, DOM-free — same "extract interactive logic into pure functions" pattern documented in HUR-16's learnings, since this repo has no JSX/component-render test harness).
+
+**Gate Results:** Build ✓ (Turbopack, 5.0s compile + 13.7s TS pass, 15 routes, no new routes — pure frontend/query-param wiring on existing `/[locale]` and `/[locale]/category/[slug]`). Lint ✓ (0 errors, 6 pre-existing unrelated warnings — 3 in `prisma/manual-scripts/backfill-brands.ts`, 3 in rate-limit test/config files, identical baseline to prior sessions). Typecheck ✓ (`npx tsc --noEmit` clean). Tests 566/566 passing (49 files) — exactly matches the expected count (up from the 530 pre-HUR-187 baseline, +36 new tests across `query-state.test.ts` and `debounce.test.ts`). Coverage 91.71%/86.01%/95.04%/92.29% (stmts/branch/funcs/lines) — all above the 80/70/80/80 thresholds; `query-state.ts` itself at 93.61%/94.28%/100%/100%.
+
+**Security fix re-verification (independent, not trusted from handoff prose):** Read `toGetProductsQuery()` directly in `src/lib/storefront/query-state.ts` — confirmed both `Number.isFinite(priceMinNum)` (line 108) and `Number.isFinite(priceMaxNum)` (line 109) guards are genuinely in place, converting non-finite parsed values (e.g. `Number("Infinity")` = `Infinity`) to `undefined` rather than passing them through to `GetProductsQuery.priceMin/priceMax` (which flow into a Postgres Decimal comparison in `getProducts()`). Confirmed the regression test exists and targets the exact reported case: `query-state.test.ts` line 121, "ignores non-finite price strings (Infinity -> undefined, not a Decimal crash)" — asserts both `"Infinity"` and `"-Infinity"` map to `undefined`.
+
+**No new XSS surface:** `grep -rn "dangerouslySetInnerHTML" src/` returns exactly 2 sites, both pre-existing from HUR-16 (`products/[slug]/page.tsx` PDP JSON-LD, `breadcrumbs.tsx` JSON-LD), both already using `toSafeJsonLdString()`. HUB-34's diff touches neither file's JSON-LD block — only adds filter/search/sort UI above/around existing content.
+
+**No new raw-SQL surface:** `getProducts()`'s `$queryRaw` full-text-search call (`src/lib/api/products.ts` line 159-163) is unchanged by this diff and still uses genuine tagged-template parameterization (`${searchQuery}`, not string concatenation). `toGetProductsQuery()` only ever supplies `search: state.q.trim()` — a plain trimmed string, same shape `getProducts()` already expected pre-HUB-34 — so the new caller introduces no new injection surface.
+
+**Dogfood:** No `dogfood` npm script exists anywhere in `package.json` (confirmed via grep + `find . -iname "*dogfood*"` — only the pre-existing `dogfood-hur51.ts`/`dogfood-u3.ts`/`dogfood-u4.ts`/`dogfood-u5.ts`, none of which cover storefront search/filter). This is the same documented pre-existing gap called out in the HUB-33/HUR-16 learnings entry, not introduced by this ticket — treated as a known limitation, not a blocker, consistent with that precedent.
+
+**Scope integrity:** `git diff --stat -- prisma/schema.prisma` empty (zero changes, confirmed both against uncommitted working tree and no schema file appears in the ticket's file list at all). `grep -rli "wishlist|comparison|cart|checkout|payment"` across `src/components/storefront/`, `src/lib/storefront/`, and the two touched page files returns zero matches — confirms no HUB-35/36/37/38+ scope leaked in. New/touched footprint is exactly: `src/components/storefront/{filter-sidebar,search-bar,sort-dropdown}.tsx` (268+66+41 lines), `src/lib/storefront/{query-state,debounce}.ts` (+tests), `src/app/[locale]/page.tsx` (+125/-41, wiring), `src/app/[locale]/category/[slug]/page.tsx` (+66/-19, wiring), `src/messages/{en,so}.json` (new `storefront.*` keys for search/filter/sort labels) — matches the ticket's stated scope exactly.
+
+**FEATURES.md diff check (per the HUB-21 "re-scoped item" rule):** Confirmed the uncommitted `FEATURES.md` diff does NOT already claim HUB-34 as verified (row 87 still shows the pre-verification 🟦 placeholder at diff time) — this gate run is the one responsible for flipping it, not rubber-stamping an already-written claim.
+
+### Rule Going Forward
+
+When a prior gate session (here, HUR-16/HUB-33) already documented a specific pre-existing gap (no dogfood script) as accepted/non-blocking, a follow-on ticket in the same functional area (HUB-34, same storefront surface) inherits that same accepted status automatically — re-confirm the gap still exists (grep/find), but do not re-litigate whether it's a blocker each time; cite the established precedent directly.
+
+---
+
+## Summary
+
+**Item:** HUB-34/HUR-187 — Search and Filtering
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-30
+**All 6 Production-Readiness Gates:** GREEN (dogfood accepted as known pre-existing limitation per HUR-16 precedent; security fix and no-new-XSS/no-new-raw-SQL-surface independently re-verified)

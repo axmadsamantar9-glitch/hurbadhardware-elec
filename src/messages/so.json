@@ -116,11 +116,38 @@
   "storefront": {
     "shopByCategory": "Ka Iibso Qayb",
     "featuredProducts": "Alaabta Muuqda",
+    "browseProducts": "Baadh Alaabta",
+    "searchResults": "Natiijada Raadinta",
     "viewAllCategories": "Eeg Dhammaan Qaybaha",
     "noProducts": "Wali alaab kama jirto qaybtan.",
+    "noResults": "Alaab kuma jirto raadintaada ama filterrada.",
     "categoryNotFound": "Qaybta lama helin",
     "previous": "Hore",
-    "next": "Xiga"
+    "next": "Xiga",
+    "search": {
+      "placeholder": "Raadi alaabta…"
+    },
+    "filters": {
+      "title": "Filterrada",
+      "category": "Qaybta",
+      "brand": "Sumadda",
+      "allCategories": "Dhammaan Qaybaha",
+      "allBrands": "Dhammaan Sumadaha",
+      "priceRange": "Qiimaha (USD)",
+      "priceMin": "Ugu Yar",
+      "priceMax": "Ugu Badan",
+      "inStock": "Kaliya Kuwa Diyaar Ah",
+      "clear": "Tirtir Filterrada",
+      "close": "Xir"
+    },
+    "sort": {
+      "label": "Kala Sooc",
+      "newest": "Cusub",
+      "priceAsc": "Qiimaha: Hooseeya ilaa Sareeya",
+      "priceDesc": "Qiimaha: Sareeya ilaa Hooseeya",
+      "rating": "Ugu Qiimaha Sarreeya",
+      "popularity": "Ugu Caansan"
+    }
   },
   "errors": {
     "notFound": "Boggu lama helin",

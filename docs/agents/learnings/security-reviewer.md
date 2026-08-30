@@ -1,5 +1,17 @@
 # Security Reviewer Agent — Learnings
 
+## HUR-187: Storefront filter/search state — validate numeric bounds at every layer, not just the outer schema (2026-08-30)
+
+**Symptom:** `toGetProductsQuery()` (`src/lib/storefront/query-state.ts`) parsed `priceMin`/`priceMax` with `Number(str)` and only guarded against `NaN`, not `Infinity`/other non-finite values. Since this helper builds a `GetProductsQuery` object directly (bypassing `GetProductsQuerySchema.parse()`, which does enforce `nonnegative()` via zod), a crafted `?priceMin=Infinity` could reach `new PrismaDecimal(Infinity.toString())` in `getProducts()` — Postgres `NUMERIC` columns don't support `Infinity`, so this could throw and 500 the page for a single request (a crash, not a data-exposure issue — Low severity).
+
+**Cause:** `GetProductsQuery` is just a TypeScript type (inferred from a zod schema) with no runtime enforcement of its own; when a caller constructs the object by hand instead of running it through `GetProductsQuerySchema.parse()`, none of the schema's runtime guards (bounds, coercion safety) actually apply — the type only gives compile-time shape checking.
+
+**Fix applied:** Changed the two `!Number.isNaN(x)` guards to `Number.isFinite(x)` in `toGetProductsQuery()`, and added a regression test (`query-state.test.ts`) covering `Infinity`, `-Infinity`, and `1e400` (JS's own overflow-to-Infinity case) all correctly falling back to `undefined`.
+
+**Rule going forward:** Whenever a new caller builds a `GetProductsQuery` (or any zod-typed query object) by hand rather than via `Schema.parse()`, check that the hand-rolled parsing mirrors _all_ of the schema's runtime constraints (not just NaN-checks) — especially `Number.isFinite()` for any field that flows into a Decimal/numeric DB column. Also flag unbounded `page` values in any new pagination UI as a standing low-severity note (accepted here, not fixed, since it matches this repo's existing `getProducts()`/`GetProductsQuerySchema` behavior — no upper page cap anywhere yet) until the data layer adds an explicit page cap.
+
+**Process note:** This security-reviewer subagent session again had no Write/Edit tool access and had to hand the exact entry text back to the orchestrator. Same recurring gap as the HUR-16 review — confirm security-reviewer subagent invocations get `docs/agents/learnings/` write access going forward.
+
 ## HUR-16: Storefront JSON-LD Injection — Unescaped `</script>` in dangerouslySetInnerHTML (2026-08-30)
 
 **Symptom:** `src/lib/storefront/jsonld.ts`'s `buildProductJsonLd`/`buildBreadcrumbJsonLd` output was injected into the page via `dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}` in both `src/app/[locale]/products/[slug]/page.tsx` and `src/components/storefront/breadcrumbs.tsx`, with no escaping of `<`/`</script`/U+2028/U+2029 sequences. `JSON.stringify` alone does not neutralize a literal `</script>` substring inside a string value — if it ever appeared in a product/category/brand name, it would close the `<script type="application/ld+json">` tag early and let a following `<script>...</script>` sequence execute in the page.
