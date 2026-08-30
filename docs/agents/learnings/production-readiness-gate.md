@@ -739,3 +739,124 @@ When a live concurrency claim has already been verified twice (builder + qa-test
 **Status:** ✅ VERIFIED
 **Date:** 2026-08-30
 **All 10 Production-Readiness Gates:** GREEN (including independently-verified migration integrity, 3rd-independent-run concurrency re-verification with matching exact outcomes, and scope-integrity-by-absence)
+
+## HUB-33/HUR-16: Customer Storefront (2026-08-30)
+
+### All Six Gates Passed — Item Verified, No New Findings
+
+**Verification Date:** 2026-08-30
+**Item:** HUB-33 (HUR-16) — Customer Storefront: homepage, category pages, PDP, image gallery, variant selector, spec sheet, compatibility warnings.
+
+**Rule going forward:** When a security fix lands as a targeted diff on top of an already-committed feature commit, diff against the feature's _pre-feature_ parent commit (not just the post-feature base named in the handoff) to review the entire feature's file scope in one pass — otherwise a narrow "uncommitted work" diff (here, just 7 files for the XSS fix) can look deceptively small and hide that the real thing being gated is a 30-file, ~1650-line feature already sitting in a single prior commit. `git diff <base>~1 -- .` surfaced the true scope; `git diff <base> -- .` alone would have missed reviewing 23 of the 30 files.
+
+## HUB-34/HUR-187: Search and Filtering (2026-08-30)
+
+### All Gates Passed — Item Verified; independently reproduced Infinity-price fix and confirmed no new dangerouslySetInnerHTML/raw-SQL surface
+
+**Verification Date:** 2026-08-30
+**Item:** HUB-34 (HUR-187) — Search and Filtering: search bar (debounced), filter sidebar (category/brand/price/in-stock), sort dropdown (newest/price_asc/price_desc/rating/popularity), wired into homepage + category pages built under HUR-16. Pure URL<->state helpers in `src/lib/storefront/query-state.ts` (hook-free, DOM-free — same "extract interactive logic into pure functions" pattern documented in HUR-16's learnings, since this repo has no JSX/component-render test harness).
+
+**Gate Results:** Build ✓ (Turbopack, 5.0s compile + 13.7s TS pass, 15 routes, no new routes — pure frontend/query-param wiring on existing `/[locale]` and `/[locale]/category/[slug]`). Lint ✓ (0 errors, 6 pre-existing unrelated warnings — 3 in `prisma/manual-scripts/backfill-brands.ts`, 3 in rate-limit test/config files, identical baseline to prior sessions). Typecheck ✓ (`npx tsc --noEmit` clean). Tests 566/566 passing (49 files) — exactly matches the expected count (up from the 530 pre-HUR-187 baseline, +36 new tests across `query-state.test.ts` and `debounce.test.ts`). Coverage 91.71%/86.01%/95.04%/92.29% (stmts/branch/funcs/lines) — all above the 80/70/80/80 thresholds; `query-state.ts` itself at 93.61%/94.28%/100%/100%.
+
+**Security fix re-verification (independent, not trusted from handoff prose):** Read `toGetProductsQuery()` directly in `src/lib/storefront/query-state.ts` — confirmed both `Number.isFinite(priceMinNum)` (line 108) and `Number.isFinite(priceMaxNum)` (line 109) guards are genuinely in place, converting non-finite parsed values (e.g. `Number("Infinity")` = `Infinity`) to `undefined` rather than passing them through to `GetProductsQuery.priceMin/priceMax` (which flow into a Postgres Decimal comparison in `getProducts()`). Confirmed the regression test exists and targets the exact reported case: `query-state.test.ts` line 121, "ignores non-finite price strings (Infinity -> undefined, not a Decimal crash)" — asserts both `"Infinity"` and `"-Infinity"` map to `undefined`.
+
+**No new XSS surface:** `grep -rn "dangerouslySetInnerHTML" src/` returns exactly 2 sites, both pre-existing from HUR-16 (`products/[slug]/page.tsx` PDP JSON-LD, `breadcrumbs.tsx` JSON-LD), both already using `toSafeJsonLdString()`. HUB-34's diff touches neither file's JSON-LD block — only adds filter/search/sort UI above/around existing content.
+
+**No new raw-SQL surface:** `getProducts()`'s `$queryRaw` full-text-search call (`src/lib/api/products.ts` line 159-163) is unchanged by this diff and still uses genuine tagged-template parameterization (`${searchQuery}`, not string concatenation). `toGetProductsQuery()` only ever supplies `search: state.q.trim()` — a plain trimmed string, same shape `getProducts()` already expected pre-HUB-34 — so the new caller introduces no new injection surface.
+
+**Dogfood:** No `dogfood` npm script exists anywhere in `package.json` (confirmed via grep + `find . -iname "*dogfood*"` — only the pre-existing `dogfood-hur51.ts`/`dogfood-u3.ts`/`dogfood-u4.ts`/`dogfood-u5.ts`, none of which cover storefront search/filter). This is the same documented pre-existing gap called out in the HUB-33/HUR-16 learnings entry, not introduced by this ticket — treated as a known limitation, not a blocker, consistent with that precedent.
+
+**Scope integrity:** `git diff --stat -- prisma/schema.prisma` empty (zero changes, confirmed both against uncommitted working tree and no schema file appears in the ticket's file list at all). `grep -rli "wishlist|comparison|cart|checkout|payment"` across `src/components/storefront/`, `src/lib/storefront/`, and the two touched page files returns zero matches — confirms no HUB-35/36/37/38+ scope leaked in. New/touched footprint is exactly: `src/components/storefront/{filter-sidebar,search-bar,sort-dropdown}.tsx` (268+66+41 lines), `src/lib/storefront/{query-state,debounce}.ts` (+tests), `src/app/[locale]/page.tsx` (+125/-41, wiring), `src/app/[locale]/category/[slug]/page.tsx` (+66/-19, wiring), `src/messages/{en,so}.json` (new `storefront.*` keys for search/filter/sort labels) — matches the ticket's stated scope exactly.
+
+**FEATURES.md diff check (per the HUB-21 "re-scoped item" rule):** Confirmed the uncommitted `FEATURES.md` diff does NOT already claim HUB-34 as verified (row 87 still shows the pre-verification 🟦 placeholder at diff time) — this gate run is the one responsible for flipping it, not rubber-stamping an already-written claim.
+
+### Rule Going Forward
+
+When a prior gate session (here, HUR-16/HUB-33) already documented a specific pre-existing gap (no dogfood script) as accepted/non-blocking, a follow-on ticket in the same functional area (HUB-34, same storefront surface) inherits that same accepted status automatically — re-confirm the gap still exists (grep/find), but do not re-litigate whether it's a blocker each time; cite the established precedent directly.
+
+---
+
+## Summary
+
+**Item:** HUB-34/HUR-187 — Search and Filtering
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-30
+**All 6 Production-Readiness Gates:** GREEN (dogfood accepted as known pre-existing limitation per HUR-16 precedent; security fix and no-new-XSS/no-new-raw-SQL-surface independently re-verified)
+
+## HUR-188/HUB-35: Wishlist — REJECTED despite 6/6 mechanical gates green (2026-08-30)
+
+### A "dead code" export was the smoking gun for a real functional bug the mechanical gates couldn't catch
+
+**Verification Date:** 2026-08-30
+**Item:** HUR-188 (HUB-35) — Wishlist: heart button on product cards + PDP, `/account/wishlist` view page.
+
+**Mechanical gates — all GREEN:** Build ✓ (Next.js 16.3.1, 9 routes incl. `/[locale]/account/wishlist` and `/api/wishlist`). Lint ✓ (0 errors, 6 pre-existing unrelated warnings). Typecheck ✓. Tests 594/594 (up from 584 baseline as expected), coverage 91.19%/85.33%/93.98%/91.93% (all above 80/70/80/80). Dogfood: confirmed no `dogfood` script in `package.json` (`grep -n "dogfood" package.json` → no match) — same pre-existing gap as HUR-16/HUR-187, correctly treated as known limitation not a blocker. Security: independently re-verified every claim — `userId` in `src/app/api/wishlist/route.ts` derived solely from `auth()` session (`session.user.id`), `WishlistMutationSchema` (Zod) has only `productId`, no `userId` field anywhere in the body schema; `src/lib/api/wishlist.ts` scopes every query (`getWishlistProducts`, `getWishlistProductIds`, `addToWishlist`, `removeFromWishlist`) by the `userId` parameter; `addToWishlist` uses a real `db.wishlist.upsert({ where: { userId_productId: { userId, productId } }, ... })` against `@@unique([userId, productId])` (confirmed live in `prisma/schema.prisma` line 588); rate-limit key is `wishlist:${userId}` (namespaced). Scope integrity ✓: `prisma/schema.prisma` diff is empty; grep for cart/checkout/payment/review/admin/comparison across all new wishlist files returned only two false-positive comment matches ("cart-adjacent" doc comment, "admin/uploads/presign" reference path) — zero actual out-of-scope functionality.
+
+**REJECTED anyway — found by tracing an unused export, not by running a gate command:** `src/lib/api/wishlist.ts` exports `getWishlistProductIds(userId)`, whose own doc comment says it exists specifically for "rendering 'is this product wishlisted?' state on cards/PDP without pulling full product rows." It has a passing unit test. But `grep -rn "getWishlistProductIds" src/` outside test files showed **zero callers** — it is never invoked by the PDP (`src/app/[locale]/products/[slug]/page.tsx`) or `ProductCard`/`WishlistButton`. Cross-checked: `WishlistButton` (`src/components/storefront/wishlist-button.tsx`) reads its checked/unchecked state purely from the client-only Zustand store (`useWishlistStore((s) => s.has(productId))`), which starts empty (`productIds: new Set()`) on every fresh mount and is only ever populated by `setAll()`, which is called from exactly one place: `src/app/[locale]/account/wishlist/page.tsx`. Consequence: on a fresh page load (new tab, browser refresh, direct link) the PDP heart button **always renders as "not wishlisted," even for products the signed-in user has already saved**, until/unless the user separately visits `/account/wishlist` first in the same SPA session. This means: (a) the heart button's displayed state lies about ground truth on first paint — a real, user-visible correctness bug in the exact feature the ticket describes ("heart button... reflects wishlist state"), not a cosmetic nit; (b) a user trying to _remove_ an already-wishlisted product via the PDP heart button on a fresh load will have their first click misinterpreted as "add" (harmless no-op server-side thanks to the upsert, but the UI won't let them remove until a second click once local state catches up) — effectively breaking the "remove" half of the add/remove flow from the PDP on first load; (c) the dead `getWishlistProductIds` export is exactly the artifact of an unfinished feature — it was built and tested for a wiring step (initial hydration) that was never completed, which independently fails the "no dead code left in diff" bar in the Definition of Done.
+
+**Why the standard 6 gates missed this:** No test harness exists for `.tsx` client components in this repo (documented repeatedly in qa-test's learnings — `vitest.config.ts` only collects `.ts`), so the actual `WishlistButton`/PDP wiring was never exercised by an automated assertion; qa-test's own entry for this ticket explicitly says "the wiring half... remains verified only by direct code reading" but did not catch this because it checked the _rollback_ wiring (does a failed POST call `remove()`), not the _initial-hydration_ wiring (does anything call `setAll()`/`getWishlistProductIds` before the button first renders). Security-reviewer had no reason to flag this (it's not a security defect). Coverage numbers stayed green because `getWishlistProductIds` has a passing unit test — coverage measures "is this line executed by a test," not "is this line reachable from the actual app."
+
+### Rule going forward
+
+An unused/dead export whose own doc comment names a specific UI-wiring purpose ("for rendering X state on Y component") is a strong signal to trace every claimed call site by hand (`grep -rn <export> src/ | grep -v test`) before trusting green build/lint/typecheck/test/coverage numbers — those five gates only prove the code that exists is internally consistent, not that the feature described in the ticket is actually wired together end-to-end. For any toggle/heart/favorite-style button whose state is meant to reflect persisted server truth, explicitly verify there is a hydration path (server-rendered initial prop, or a client fetch-on-mount) feeding the client state store before first paint — a Zustand/local-state store that starts empty and is only ever populated by one narrow page (here: the dedicated list-view page) will silently make every _other_ entry point into that toggle wrong on first load, which existing automated tests (route tests, data-layer tests, store-logic tests) cannot catch because each of them tests its own layer in isolation, never the cross-layer wiring.
+
+---
+
+## Summary
+
+**Item:** HUR-188 (HUB-35) — Wishlist
+**Status:** ❌ REJECTED — sent back to commerce-engine
+**Date:** 2026-08-30
+**Gate results:** Build/Lint/Typecheck/Tests/Coverage/Dogfood/Security/Scope-integrity all GREEN individually, but overall REJECTED for a real functional defect (missing initial wishlist-status hydration on PDP/product-card heart buttons) discovered by tracing an unused export, not by any single gate command.
+
+## HUR-188/HUB-35: Wishlist — VERIFIED on 3rd gate pass (2026-08-30)
+
+### Two-round rejection resolved cleanly; dead-code check is now a standing gate step for toggle-state features
+
+**Verification Date:** 2026-08-30
+**Item:** HUR-188 (HUB-35) — Wishlist: heart button on product cards + PDP, `/account/wishlist` view page.
+
+**History:** 1st pass rejected for missing initial-hydration wiring (PDP heart button always rendered "not wishlisted" on first paint, discovered by tracing an unused `getWishlistProductIds` export with no callers). Fix: PDP now calls `auth()` + `isProductWishlisted(userId, productId)` server-side and passes the result as an `initialWishlisted` prop into `WishlistButton`, which lazily seeds `useState(initialWishlisted)` — confirmed by direct read of `src/app/[locale]/products/[slug]/page.tsx` and `src/components/storefront/wishlist-button.tsx`. `ProductCard` also threads an optional `wishlist.initiallyWishlisted` through the same prop for card-grid contexts. 2nd pass rejected because the fix left the old `getWishlistProductIds` function (and its describe block) as orphaned dead code — the hydration path now uses `isProductWishlisted` instead, but the superseded function/test were never deleted.
+
+**This pass:** Independently confirmed the removal was real, not just claimed — `grep -rn "getWishlistProductIds" src/` returns zero matches (exit code 1) across both source and test files. Went further than trusting "one function removed": checked all four remaining exports (`getWishlistProducts`, `isProductWishlisted`, `addToWishlist`, `removeFromWishlist`) each have live non-test callers (route.ts, PDP, account/wishlist page) so none of them became newly orphaned as a side effect of the cleanup.
+
+**Mechanical gates:** Build ✓ (10 routes incl. `/[locale]/account/wishlist`, `/api/wishlist`). Lint ✓ (0 errors, 6 pre-existing unrelated warnings). Typecheck ✓ (`npx tsc --noEmit`, empty output). Tests 595/595 (down from 596 by exactly 1, matching the one removed `getWishlistProductIds` test — confirms the deletion didn't silently drop other test coverage). Coverage 91.18%/85.33%/93.93%/91.93% (all ≥ 80/70/80/80). Dogfood: `grep -n "dogfood" package.json` → no match, same pre-existing repo-wide gap as HUR-16/HUB-34, accepted as known limitation per established precedent. Security: reconfirmed `userId` is session-derived only (`auth()` in `route.ts` and now also in the PDP) across all three touched surfaces, never client input — this is the third pass over the same auth/ownership code and the pattern (session-scoped queries, Zod schema with no `userId` field, namespaced rate-limit key) is unchanged from the first two passes. Scope integrity ✓: `prisma/schema.prisma` diff empty (0 lines vs HEAD); grep for cart/checkout/payment/comparison across the wishlist surface returned only benign false positives (translation keys literally named `addToWishlist`/`removeFromWishlist`, and a pre-existing "cart-adjacent" doc comment in `wishlistStore.ts`) — no actual out-of-scope functionality.
+
+### Rule going forward
+
+When a builder's fix for a "missing wiring" defect supersedes an existing function (e.g. a batch-fetch replaced by a single-row check), always re-check for orphaned exports as a direct part of the next gate pass, not just re-run the mechanical commands — `grep -rn <every export in the touched file> src/ | grep -v test` for the touched data-layer file is now a standing verification step here, not a one-off. Also: when a builder claims "removed cleanly," verify the exact expected test-count delta (removed function should correspond to removed test count, e.g. 596 → 595 for one deleted describe block) rather than just checking "all tests pass" — a mismatched delta would indicate either the removal wasn't clean or unrelated tests were accidentally dropped.
+
+---
+
+## Summary
+
+**Item:** HUR-188 (HUB-35) — Wishlist
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-30
+**All 8 Production-Readiness Gates:** GREEN (including scope-integrity and dead-code-orphan checks; 3rd and final gate pass after two rejections for hydration wiring and orphaned dead code, both independently confirmed fixed)
+
+## HUR-26 (HUB-36): Product Comparison (2026-08-30)
+
+### All Gates Passed — Item Verified; clean single-workstream diff (no dirty-tree contamination this time)
+
+**Verification Date:** 2026-08-30
+**Item:** HUR-26/HUB-36 — Product Comparison: select up to 3 products, side-by-side spec comparison, remove/clear. Client-only Zustand selection state, URL-driven Server Component comparison page, no schema change, no persistence.
+
+**Gate Results:** Build ✓ (Turbopack, `/[locale]/products/compare` route present), Lint ✓ (0 errors, 6 pre-existing unrelated warnings in `prisma/manual-scripts/`, rate-limit test/config files — none touched by this ticket), Typecheck ✓, Tests 632/632 (up from 596 pre-ticket baseline, matching the pipeline's stated expectation exactly), coverage 91.71%/85.77%/94.59%/92.38% (all ≥ 80/70/80/80), Dogfood — same pre-existing gap as every prior storefront ticket this session (no `dogfood` script in `package.json`), correctly treated as a known limitation not a blocker, Security ✓ (independently re-verified, see below).
+
+**Independent security re-verification (didn't just trust the pipeline's prior GREEN report):** Read `parseCompareIdsParam()` in `src/lib/storefront/compare.ts` — confirmed `.slice(0, max)` caps the deduplicated id list to 3 _before_ it's ever passed to `getProductsByIds()`. Read `getProductsByIds()` in `src/lib/api/products.ts` — confirmed genuine Prisma parameterization (`where: { id: { in: ids }, isActive: true }`), no raw SQL, no string concatenation. Read the comparison page — confirmed it maps every fetched product through `toPublicProduct()` before either building spec rows or handing data to `CompareTable`. Grepped for `dangerouslySetInnerHTML` repo-wide — exactly the two pre-existing HUR-16 sites (`[slug]/page.tsx` JSON-LD, `breadcrumbs.tsx`), zero new ones. Independently verified `en.json`/`so.json` key parity for every new `compare.*` and `product.*Compare*` key via a flatten-and-diff script (zero orphans either direction) — this repo has a history (HUR-13/175 entry above) of i18n key-parity issues, so this is now a standard check for any ticket that touches `src/messages/`.
+
+**Scope integrity (clean single-workstream diff, unlike several recent tickets):** `git diff --name-only` + `git ls-files --others --exclude-standard` showed exactly: the 8 new compare files, `product-card.tsx` (opt-in `compare` slot, mirrors the pre-existing `wishlist` slot pattern exactly), `homepage`/`category`/`[slug]` pages (wiring the new slot + `CompareBar`/`CompareButton` in, nothing else changed — confirmed via full diff read, not just file list), `products.ts`/`products.test.ts` (new `getProductsByIds()` + its test only), `en.json`/`so.json` (new keys only, existing keys untouched), and learnings docs. `prisma/schema.prisma` diff empty (both working-tree and against HEAD). No wishlist/cart/checkout/payment/search-filter-sort logic touched — the one line that looked risky (PDP's existing `WishlistButton` block) was only re-wrapped in a `<div className="flex gap-2">` to sit beside the new `CompareButton`; its own props (`productId`, `labels`, `initialWishlisted`) are byte-for-byte unchanged.
+
+### Rule Going Forward
+
+When a ticket adds new i18n message keys, run a flatten-and-diff parity check between `en.json` and `so.json` scoped to just the new keys (not the whole file) — this repo has had real key-parity gaps before (HUR-13/175) and it's a 5-line Node one-liner, cheap enough to run on every ticket that touches `src/messages/`.
+
+---
+
+## Summary
+
+**Item:** HUR-26/HUB-36 — Product Comparison
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-30
+**All 6 Production-Readiness Gates:** GREEN (Dogfood accepted as known pre-existing limitation, not a blocker)

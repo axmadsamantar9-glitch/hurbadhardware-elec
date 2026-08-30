@@ -17,7 +17,32 @@
     "quantity": "Tirada",
     "viewDetails": "Eeg Faahfaahinta",
     "specifications": "Astaamaha",
-    "reviews": "Faallooyinka"
+    "reviews": "Faallooyinka",
+    "variantUnavailable": "Isku-darkan ma jirto",
+    "compatibility": "Waafaqsanaanta",
+    "notFound": "Alaabta lama helin",
+    "brand": "Sumadda",
+    "addToWishlist": "Ku dar liiska jaceylka",
+    "removeFromWishlist": "Ka saar liiska jaceylka",
+    "addToCompare": "Ku dar isbarbardhigga",
+    "removeFromCompare": "Ka saar isbarbardhigga",
+    "compareFull": "Waxaad isbarbardhigi kartaa ilaa 3 alaab — marka hore mid ka saar"
+  },
+  "wishlist": {
+    "title": "Liiska Jaceylkayga",
+    "empty": "Liiska jaceylkaagu waa madhan yahay.",
+    "browseProducts": "Baadh Alaabta",
+    "remove": "Ka Saar"
+  },
+  "compare": {
+    "title": "Isbarbardhig Alaabta",
+    "viewCompare": "Isbarbardhig ({count})",
+    "empty": "Weli alaab looma dooran isbarbardhigga.",
+    "browseProducts": "Baadh Alaabta",
+    "remove": "Ka Saar",
+    "clear": "Nadiifi Dhammaan",
+    "specifications": "Astaamaha",
+    "notFound": "Midna kama helin alaabta la doortay."
   },
   "cart": {
     "title": "Gaadhiga",
@@ -81,7 +106,8 @@
     "adminPrivileges": "Waxaad lehtaa xuquuqda maamulaha.",
     "goToDashboard": "Tag Dashboard-ka Maamulaha",
     "signOut": "Ka Bax",
-    "yourAccount": "Akaauntiga"
+    "yourAccount": "Akaauntiga",
+    "wishlist": "Liiska Jaceylka"
   },
   "admin": {
     "dashboard": "Dashboard-ka Maamulaha",
@@ -106,7 +132,44 @@
     "home": "Hoyga",
     "account": "Akaauntiga",
     "signIn": "Soo Gal",
-    "signUp": "Diiwaangeli"
+    "signUp": "Diiwaangeli",
+    "categories": "Qaybaha"
+  },
+  "storefront": {
+    "shopByCategory": "Ka Iibso Qayb",
+    "featuredProducts": "Alaabta Muuqda",
+    "browseProducts": "Baadh Alaabta",
+    "searchResults": "Natiijada Raadinta",
+    "viewAllCategories": "Eeg Dhammaan Qaybaha",
+    "noProducts": "Wali alaab kama jirto qaybtan.",
+    "noResults": "Alaab kuma jirto raadintaada ama filterrada.",
+    "categoryNotFound": "Qaybta lama helin",
+    "previous": "Hore",
+    "next": "Xiga",
+    "search": {
+      "placeholder": "Raadi alaabta…"
+    },
+    "filters": {
+      "title": "Filterrada",
+      "category": "Qaybta",
+      "brand": "Sumadda",
+      "allCategories": "Dhammaan Qaybaha",
+      "allBrands": "Dhammaan Sumadaha",
+      "priceRange": "Qiimaha (USD)",
+      "priceMin": "Ugu Yar",
+      "priceMax": "Ugu Badan",
+      "inStock": "Kaliya Kuwa Diyaar Ah",
+      "clear": "Tirtir Filterrada",
+      "close": "Xir"
+    },
+    "sort": {
+      "label": "Kala Sooc",
+      "newest": "Cusub",
+      "priceAsc": "Qiimaha: Hooseeya ilaa Sareeya",
+      "priceDesc": "Qiimaha: Sareeya ilaa Hooseeya",
+      "rating": "Ugu Qiimaha Sarreeya",
+      "popularity": "Ugu Caansan"
+    }
   },
   "errors": {
     "notFound": "Boggu lama helin",

@@ -1,5 +1,46 @@
 # Security Reviewer Agent — Learnings
 
+## HUR-26: Product Comparison — Cap-Before-Query Fully Neutralizes Unbounded ?ids= Param (2026-08-30)
+
+**Summary:** Reviewed the new comparison feature (client Zustand selection + URL-driven `?ids=a,b,c` Server Component page). `parseCompareIdsParam()` (`src/lib/storefront/compare.ts`) dedupes via `Set` and `.slice(0, MAX_COMPARE_PRODUCTS=3)` before the ids ever reach `getProductsByIds()`'s Prisma `id: { in: ids }` query — confirmed an attacker-supplied `?ids=` with thousands of values still only produces a 3-element `IN (...)`. `getProductsByIds()` correctly filters `isActive: true` (matching the rest of the catalog) and its raw `ProductWithRelations` return is redacted via `toPublicProduct()` before reaching JSX. No new `dangerouslySetInnerHTML` in the diff (grep-verified — only the two pre-existing, already-fixed HUR-16 call sites remain).
+
+**Rule going forward:** When a feature has a UI-enforced cap (e.g. "select up to 3") but also exposes a URL param an attacker can set directly, verify the cap is enforced in the _parsing_ function itself (before the value reaches any DB query), not just assumed from the UI's own affordances — this is the correct pattern to point future builders at.
+
+## Wishlist Write Endpoint — Ownership Enforcement Done Right (HUR-188/HUB-35, 2026-08-30)
+
+**Symptom:** N/A — this is a positive-pattern confirmation, not a bug found. First genuinely authenticated write endpoint in the storefront code (`src/app/api/wishlist/route.ts`), reviewed GREEN with zero findings above Low.
+
+**Rule going forward:** When reviewing the first authenticated write endpoint for a new resource, the reference-quality pattern to check for (and to point builders at) is:
+
+1. The Zod schema for the mutation body deliberately omits any actor-attribution field (e.g. `userId`) so a client-supplied value is silently stripped by `safeParse`, not merely "ignored by convention" — verify with a test that asserts the downstream call uses the session id even when the client sends a spoofed one (see `src/app/api/wishlist/route.test.ts`'s "ignoring any client-supplied userId" test).
+2. Every data-layer function takes `userId` as an explicit parameter and every Prisma `where` clause includes it (not just the primary lookup key), so even a guessed foreign id (e.g. `productId`) can't cross the ownership boundary — `deleteMany({ where: { userId, productId } })` is the right shape, not `deleteMany({ where: { productId } })` with an ownership check bolted on separately.
+3. A true upsert-on-unique-constraint (`db.<model>.upsert` keyed on a `@@unique([userId, xId])` compound constraint) is the correct idempotency mechanism for "add" endpoints — reject check-then-insert patterns as a race condition risk.
+4. Rate-limit key must be namespaced per-resource and per-user/IP (e.g. `` `wishlist:${userId}` ``), matching the precedent at `src/app/api/admin/uploads/presign/route.ts` — this avoids the cross-endpoint shared-key collision found in the HUR-15 review.
+
+## HUR-187: Storefront filter/search state — validate numeric bounds at every layer, not just the outer schema (2026-08-30)
+
+**Symptom:** `toGetProductsQuery()` (`src/lib/storefront/query-state.ts`) parsed `priceMin`/`priceMax` with `Number(str)` and only guarded against `NaN`, not `Infinity`/other non-finite values. Since this helper builds a `GetProductsQuery` object directly (bypassing `GetProductsQuerySchema.parse()`, which does enforce `nonnegative()` via zod), a crafted `?priceMin=Infinity` could reach `new PrismaDecimal(Infinity.toString())` in `getProducts()` — Postgres `NUMERIC` columns don't support `Infinity`, so this could throw and 500 the page for a single request (a crash, not a data-exposure issue — Low severity).
+
+**Cause:** `GetProductsQuery` is just a TypeScript type (inferred from a zod schema) with no runtime enforcement of its own; when a caller constructs the object by hand instead of running it through `GetProductsQuerySchema.parse()`, none of the schema's runtime guards (bounds, coercion safety) actually apply — the type only gives compile-time shape checking.
+
+**Fix applied:** Changed the two `!Number.isNaN(x)` guards to `Number.isFinite(x)` in `toGetProductsQuery()`, and added a regression test (`query-state.test.ts`) covering `Infinity`, `-Infinity`, and `1e400` (JS's own overflow-to-Infinity case) all correctly falling back to `undefined`.
+
+**Rule going forward:** Whenever a new caller builds a `GetProductsQuery` (or any zod-typed query object) by hand rather than via `Schema.parse()`, check that the hand-rolled parsing mirrors _all_ of the schema's runtime constraints (not just NaN-checks) — especially `Number.isFinite()` for any field that flows into a Decimal/numeric DB column. Also flag unbounded `page` values in any new pagination UI as a standing low-severity note (accepted here, not fixed, since it matches this repo's existing `getProducts()`/`GetProductsQuerySchema` behavior — no upper page cap anywhere yet) until the data layer adds an explicit page cap.
+
+**Process note:** This security-reviewer subagent session again had no Write/Edit tool access and had to hand the exact entry text back to the orchestrator. Same recurring gap as the HUR-16 review — confirm security-reviewer subagent invocations get `docs/agents/learnings/` write access going forward.
+
+## HUR-16: Storefront JSON-LD Injection — Unescaped `</script>` in dangerouslySetInnerHTML (2026-08-30)
+
+**Symptom:** `src/lib/storefront/jsonld.ts`'s `buildProductJsonLd`/`buildBreadcrumbJsonLd` output was injected into the page via `dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}` in both `src/app/[locale]/products/[slug]/page.tsx` and `src/components/storefront/breadcrumbs.tsx`, with no escaping of `<`/`</script`/U+2028/U+2029 sequences. `JSON.stringify` alone does not neutralize a literal `</script>` substring inside a string value — if it ever appeared in a product/category/brand name, it would close the `<script type="application/ld+json">` tag early and let a following `<script>...</script>` sequence execute in the page.
+
+**Cause:** JSON-LD is JSON injected into an HTML `<script>` context, a different escaping domain than plain JSX text interpolation (which is safe by default). Builders correctly kept the JSON-LD _data_ redacted (typed to only accept `PublicProduct*`, verified stockQuantity-free by a test) but didn't add the separate HTML-context escaping step JSON-in-`<script>` requires.
+
+**Fix applied:** added `toSafeJsonLdString()` to `jsonld.ts` (escapes `<` to `<` before `dangerouslySetInnerHTML`) and switched both call sites to use it; added a regression test asserting a name containing `</script><script>alert(1)</script>` round-trips safely through `JSON.parse` after serialization but never contains a literal `</script>` in the serialized string.
+
+**Rule going forward:** Any `dangerouslySetInnerHTML` used to inject `JSON.stringify(...)` output into a `<script>` tag (JSON-LD or otherwise) must escape `<` before assignment to `__html`. Flag any new/existing JSON-LD or inline-script-injection site that skips this as at least High if the underlying data has _any_ future path to non-seed/non-hardcoded input (admin CMS fields, user-generated content), even if today's data source is fully trusted — the redaction/typing safeguards that stop admin-only _fields_ (stockQuantity, suppliers) from leaking say nothing about HTML-context escaping of the fields that _are_ meant to be public (names, descriptions).
+
+**Process note:** The security-reviewer subagent that found this had only Read/Glob/Grep tools available and could not write this entry itself — handed the exact text back to the orchestrator, who applied both the fix and this entry. Confirm security-reviewer subagent invocations get Edit/Write access to `docs/agents/learnings/` specifically going forward, not just general repo access, so this stops needing a manual carry-over.
+
 ## HUB-29: Inventory Ledger — Atomic Guarded UPDATE, createdBy Trust Boundary (2026-08-30)
 
 **Summary:** Reviewed `src/lib/inventory.ts`'s `adjustStock()`, the first `$executeRaw` (not `$queryRaw`) usage this session, implementing PRD §52 Rule #3 (no oversell under concurrency). Confirmed the raw UPDATE uses genuine tagged-template parameterization (no string concatenation/interpolation), the oversell guard (`stock_quantity + delta >= 0`) is inside the same SQL WHERE clause as the UPDATE (atomic, no TOCTOU read-then-write gap), and the `InventoryLog` write + stock UPDATE run in one `$transaction` (confirmed via the live tests: a rejected concurrent call leaves zero residual InventoryLog rows, proving rollback works, not just the success path).

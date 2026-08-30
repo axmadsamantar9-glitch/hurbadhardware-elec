@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { useEffect } from "react";
 
 export const dynamic = "force-dynamic";
@@ -98,6 +99,15 @@ export default function AccountPage() {
                 </button>
               </div>
             )}
+
+            <div className="border-t border-zinc-200 pt-6">
+              <Link
+                href={`/${locale}/account/wishlist`}
+                className="inline-flex items-center rounded-lg border border-zinc-300 px-4 py-2 font-medium text-zinc-900 hover:bg-zinc-50 transition-colors"
+              >
+                {t("account.wishlist")}
+              </Link>
+            </div>
 
             <div className="border-t border-zinc-200 pt-6">
               <h3 className="text-lg font-semibold mb-4">{t("account.signOut")}</h3>

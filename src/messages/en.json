@@ -17,7 +17,32 @@
     "quantity": "Quantity",
     "viewDetails": "View Details",
     "specifications": "Specifications",
-    "reviews": "Reviews"
+    "reviews": "Reviews",
+    "variantUnavailable": "This combination is not available",
+    "compatibility": "Compatibility",
+    "notFound": "Product not found",
+    "brand": "Brand",
+    "addToWishlist": "Add to wishlist",
+    "removeFromWishlist": "Remove from wishlist",
+    "addToCompare": "Add to compare",
+    "removeFromCompare": "Remove from compare",
+    "compareFull": "You can compare up to 3 products — remove one first"
+  },
+  "wishlist": {
+    "title": "My Wishlist",
+    "empty": "Your wishlist is empty.",
+    "browseProducts": "Browse Products",
+    "remove": "Remove"
+  },
+  "compare": {
+    "title": "Compare Products",
+    "viewCompare": "Compare ({count})",
+    "empty": "No products selected for comparison yet.",
+    "browseProducts": "Browse Products",
+    "remove": "Remove",
+    "clear": "Clear All",
+    "specifications": "Specifications",
+    "notFound": "None of the selected products could be found."
   },
   "cart": {
     "title": "Cart",
@@ -81,7 +106,8 @@
     "adminPrivileges": "You have administrator privileges.",
     "goToDashboard": "Go to Admin Dashboard",
     "signOut": "Sign Out",
-    "yourAccount": "Your Account"
+    "yourAccount": "Your Account",
+    "wishlist": "Wishlist"
   },
   "admin": {
     "dashboard": "Admin Dashboard",
@@ -106,7 +132,44 @@
     "home": "Home",
     "account": "Account",
     "signIn": "Sign In",
-    "signUp": "Sign Up"
+    "signUp": "Sign Up",
+    "categories": "Categories"
+  },
+  "storefront": {
+    "shopByCategory": "Shop by Category",
+    "featuredProducts": "Featured Products",
+    "browseProducts": "Browse Products",
+    "searchResults": "Search Results",
+    "viewAllCategories": "View All Categories",
+    "noProducts": "No products found in this category yet.",
+    "noResults": "No products match your search or filters.",
+    "categoryNotFound": "Category not found",
+    "previous": "Previous",
+    "next": "Next",
+    "search": {
+      "placeholder": "Search products…"
+    },
+    "filters": {
+      "title": "Filters",
+      "category": "Category",
+      "brand": "Brand",
+      "allCategories": "All Categories",
+      "allBrands": "All Brands",
+      "priceRange": "Price (USD)",
+      "priceMin": "Min",
+      "priceMax": "Max",
+      "inStock": "In Stock Only",
+      "clear": "Clear Filters",
+      "close": "Close"
+    },
+    "sort": {
+      "label": "Sort by",
+      "newest": "Newest",
+      "priceAsc": "Price: Low to High",
+      "priceDesc": "Price: High to Low",
+      "rating": "Top Rated",
+      "popularity": "Most Popular"
+    }
   },
   "errors": {
     "notFound": "Page not found",

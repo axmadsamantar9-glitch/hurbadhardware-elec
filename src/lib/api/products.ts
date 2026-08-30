@@ -280,6 +280,33 @@ async function getProductsSortedByAggregate(
 }
 
 /**
+ * Look up multiple active products by id, for the comparison page (HUR-26,
+ * U7 / PRD R5). Returns full relations (specs included, needed for the
+ * spec-sheet comparison table) — same shape as `getProductBySlug()`.
+ *
+ * Deliberately silent about missing/inactive ids (e.g. a bookmarked compare
+ * URL where a product was later deactivated) rather than erroring — the
+ * caller renders whatever subset is still found, matching `getProducts()`'s
+ * "invalid/missing filters are ignored gracefully" convention. Does NOT
+ * preserve `ids` order (Prisma's `id: { in: [...] }` doesn't guarantee it);
+ * callers that care about order must reorder the result themselves.
+ */
+export async function getProductsByIds(ids: string[]): Promise<ProductWithRelations[]> {
+  if (ids.length === 0) return [];
+  return db.product.findMany({
+    where: { id: { in: ids }, isActive: true },
+    include: {
+      images: true,
+      specs: true,
+      variants: true,
+      category: true,
+      brand: true,
+      manufacturer: true,
+    },
+  });
+}
+
+/**
  * Look up a single product by slug for the product detail page (U7).
  *
  * Returns raw `nameEn`/`nameSo` (and other bilingual fields) without

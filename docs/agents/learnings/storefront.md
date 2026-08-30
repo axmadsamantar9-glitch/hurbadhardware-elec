@@ -396,6 +396,147 @@ ReturnType<typeof vi.fn<() => Promise<Session | null>>>`, then call
 ambiguity entirely rather than sprinkling `as any`/`as unknown as Session`
 casts at every call site.
 
+## HUR-16: this repo has no JSX/component-render test infra — vitest only runs `.test.ts`, `environment: "node"`, no jsdom/RTL
+
+**Symptom/context:** Writing tests for the first real storefront pages
+(homepage, category, PDP) revealed `vitest.config.ts`'s `test.include` is
+`["src/**/*.test.ts"]` (not `.tsx`) and `environment: "node"` — there is no
+DOM, no `@testing-library/react`, nothing. The only precedent for testing a
+React component (`src/components/ui/card.test.ts`) works around this by
+calling a `forwardRef` component's `.render(props, ref)` method directly and
+asserting on the returned element's `.type`/`.props`, never mounting to a
+DOM. That pattern only works for components with **no hooks** — any
+component calling `useState`/`useEffect`/`useTranslations` etc. throws
+"Invalid hook call" if invoked directly outside React's render context.
+
+**Rule going forward:** For any new interactive (`"use client"`,
+hook-using) storefront component (image gallery switching, variant
+selector, hamburger menu), do NOT attempt to unit-test the rendered/
+interactive behavior in this repo as it stands — there is no infra for it.
+Instead: (1) extract all non-trivial logic into plain, hook-free pure
+functions in `src/lib/storefront/` (e.g. `sortProductImages`,
+`groupVariantOptions`/`findMatchingVariant`, `buildSpecSheet`,
+`buildProductJsonLd`/`buildBreadcrumbJsonLd`, `findCategoryBySlug`) and
+unit-test _those_ exhaustively — they're where the real bugs live anyway;
+(2) keep the "use client" component itself a thin wrapper that just calls
+the pure helper and renders `useState`-driven JSX, with no branching logic
+worth testing on its own; (3) for Server Components (async function,
+no hooks — e.g. the actual `page.tsx` files), invoking the async function
+directly and awaiting it is possible in principle (no dispatcher needed)
+but wasn't done here for the page components themselves, only the
+extracted helpers — treat full page-level rendering/interaction coverage
+as a known gap to flag explicitly in status reports, not something to
+silently skip. Do not add `jsdom`/`@testing-library/react` yourself to
+close this gap unless explicitly asked — that's an infra decision for
+qa-test/architect, not a unilateral addition inside a feature ticket.
+
+## `ProductVariant.attributes` (`Json?`) has no schema-enforced shape — every reader must defensively coerce
+
+**Symptom/context:** Building the PDP variant selector (U7) needed to read
+per-variant attribute key/value pairs (e.g. storage/color) from
+`ProductVariant.attributes`, a bare `Json?` Prisma column with zero
+seed data and zero schema-level shape constraint (see the column's doc
+comment in `prisma/schema.prisma` — deliberately loose, mirroring
+`ProductSpec`'s free-text philosophy).
+
+**Rule going forward:** Never assume `attributes` is `Record<string,
+string>` without runtime-checking it first — a malformed/legacy row (null,
+an array, a non-string value under some key) must degrade gracefully
+(treated as "no attributes"/skip that key) rather than throwing and taking
+down the whole PDP. See `readVariantAttributes()` in
+`src/lib/storefront/variants.ts` for the coercion pattern (guards `typeof
+!== "object"`, `Array.isArray`, and per-value `typeof !== "string"`) — reuse
+it rather than re-deriving ad hoc `as Record<string,string>` casts at each
+new call site. As of this ticket, zero `ProductVariant` rows exist in the
+seed data, so the variant selector UI is untested against real DB data —
+only against hand-built fixtures in `variants.test.ts`; flag this as a real
+gap whenever seed data for variants eventually lands (verify the selector
+against actual seeded storage/color combinations at that point, not just
+the unit tests).
+
+## Bash tool heredocs silently fail (`unexpected EOF while looking for matching` `''`) on long file content containing apostrophes/possessives — split into chunks
+
+**Symptom:** Writing `filter-sidebar.tsx` (HUR-187, ~250 lines) via
+`cat > file << 'EOF' ... EOF` failed with
+`/usr/bin/bash: -c: line N: unexpected EOF while looking for matching `''`,
+even after removing every apostrophe/contraction from the comment text (the
+first suspect, since the Bash tool appeared to wrap the whole command in an
+outer single-quoted string). The identical heredoc content, when split into
+~30-40 line chunks written to separate scratch files and then `cat`-concatenated
+into the destination, wrote correctly on the first try — with no content
+changes at all versus the failing single-shot attempt.
+
+**Cause:** Not actually apostrophes (multiple apostrophe-free rewrites still
+failed identically) — the practical trigger is long/complex multi-line
+heredoc payloads passed through this environment's Bash tool, which appears
+to have some length- or complexity-related limit distinct from a normal
+POSIX shell. Bisecting by chunk size (not by removing specific characters)
+is the correct diagnostic approach, not guessing at "bad characters."
+
+**Rule going forward:** For any new file whose content is a large
+multi-line heredoc (a full React component, a long test file, etc.), write
+it in ~150-200 line chunks to separate scratch files in the scratchpad
+directory (`cat > "$SCRATCHPAD/chunkN.txt" << 'EOF' ... EOF`, each chunk
+individually well under the failure threshold), then join them into the
+real destination with a single `cat chunk1 chunk2 ... > destination`. Don't
+waste time trying to hand-edit apostrophes/quotes out of the content first
+— that was a red herring here. After joining, always `Read` the resulting
+file back once to confirm no boundary lines were dropped/duplicated at the
+chunk seams (missing blank lines between chunks are cosmetic and fixable
+with a couple of targeted `Edit` calls, not a full rewrite).
+
+## React Compiler ESLint rules (`react-hooks/set-state-in-effect`, `preserve-manual-memoization`) reject the naive "sync local state from a URL-derived prop" `useEffect` pattern
+
+**Symptom:** HUR-187's `SearchBar` and `FilterSidebar` both needed to reset
+local component state (search input text, price-range inputs, mobile drawer
+open/closed) whenever the URL's search params changed from _outside_ the
+component (browser back/forward, a "clear filters" click elsewhere, another
+filter changing the URL). The obvious `useEffect(() => setValue(x), [x])`
+pattern is a hard ESLint **error** in this repo's config
+(`react-hooks/set-state-in-effect`), not a warning — `npx eslint` fails the
+build on it. Fixing that by wrapping the reset handler in `useCallback(...,
+[])` and calling it from the effect then hit a second, unrelated error:
+`react-hooks/preserve-manual-memoization` ("Compilation Skipped... inferred
+dependency was `setIsOpen`, but the source dependencies were []") — the
+React Compiler could not reconcile the `useCallback([])` against a
+component that also does an unrelated render-time `setState` call elsewhere
+in the same render (the "adjust during render" block itself, which is the
+_correct_ pattern here — see below).
+
+**Cause:** This repo already established (in `CategoryNav`, pre-HUR-187)
+the correct fix for "sync state when an external value changes": adjust
+state **during render**, not in an effect — track the previous value of the
+external input in its own `useState`, and if it differs from the current
+render's value, call the setter(s) directly in the render body (before the
+JSX return), guarded by `if (external !== lastExternal) { setLastExternal
+(...); setX(...); }`. This is React's documented "you might not need an
+effect" derived-state pattern. `CategoryNav`'s existing `closeMenu =
+useCallback(..., [])` lints clean because it's the _only_ place calling
+`setIsOpen`; as soon as a component also has a render-time-adjustment block
+that calls the same setter (`FilterSidebar`'s drawer-close-on-filter-change
+logic), the compiler's manual-memoization check for a _separate_
+`useCallback` referencing that setter can get confused and skip
+optimization even though the code is logically correct.
+
+**Rule going forward:** (1) Never write `useEffect(() => setState(...), [dep])`
+purely to mirror an external/derived value into local state — always use
+the render-time-adjustment pattern (`lastX` shadow state + conditional
+setState in the render body), matching `CategoryNav`'s `lastPathname`
+precedent. (2) If a component has such a render-time-adjustment block that
+sets a piece of state (e.g. `setIsOpen`), and a _different_ handler
+elsewhere in the same component also needs to set that same piece of state
+(e.g. a "close" button), don't wrap that second handler in `useCallback`
+with an empty dependency array — leave it as a plain (non-memoized)
+function, and if it's a `useEffect` dependency, inline the state-setting
+logic directly inside that effect instead of calling the outside function,
+so the effect's own dependency array doesn't need to include a
+non-memoizable reference. (3) Always run `npx eslint <changed files>`
+(not just `tsc --noEmit`) on new "use client" components before considering
+them done — both of these are `error`-level in this repo's flat config, not
+`warn`, and neither is caught by TypeScript alone. See
+`src/components/storefront/search-bar.tsx` and
+`src/components/storefront/filter-sidebar.tsx` for the resulting pattern.
+
 ## `x || "literal"` fallback silently defeats a zod `.default()` downstream
 
 **Symptom:** `src/app/api/products/route.ts`'s `parseQueryParams()` had
@@ -443,3 +584,40 @@ override just the function under test, construct a plain
 `new Request(url, { headers: { "x-forwarded-for": ip } })`, and call
 `GET()` directly -- no live server or DB needed, and it exercises the real
 rate-limiting + redaction + param-parsing wiring end to end.
+
+## HUR-26: a non-persisted client selection store can sidestep HUB-35's hydration lesson entirely, by design
+
+**Symptom/context:** HUB-35's wishlist feature needed an `initial*` prop
+hydration pattern because its Zustand store's "true" state lives in the
+DB and the store starts empty on every page load — rendering straight from
+the store on mount is wrong until a fetch resolves. HUR-26 (product
+comparison, up to 3 products) looked like it would need the identical fix
+for its `CompareButton`/`useCompareStore`, but it doesn't.
+
+**Cause:** The ticket scoped comparison selection as explicitly
+non-persisted (no schema change, no DB, no localStorage) — selection lives
+only in an in-memory Zustand store for the current tab, reset on reload.
+Because there is no external source of truth for the store to be out of
+sync with, the server-rendered first paint and the client's initial store
+state are _always_ identical (both "nothing selected") — there is no
+window where the UI can be wrong. The one place that does need
+first-paint-correct data — the actual `/products/compare` comparison
+table — was designed to read a `?ids=a,b,c` URL query param and fetch
+server-side instead of reading the client store at all (mirroring the
+existing `query-state.ts`/`buildFilterHref` pattern), so "remove one
+product" and "clear all" are plain `<Link href={newUrl}>`s, not
+client-state mutations — no effect-based sync, no hydration mismatch,
+no `useState`/`useEffect` on the comparison table at all.
+
+**Rule going forward:** Before reflexively re-applying the `initial*`-prop
+hydration fix to a new client-store-backed feature, first ask whether the
+new store actually has an external (server/DB) source of truth it can
+diverge from. If a feature is deliberately scoped as ephemeral
+tab-local-only state with no persistence, the correct fix is architectural
+(don't let anything performance/SEO/bookmark-sensitive depend on the store
+for its first render; drive that from the URL or a server prop instead),
+not a hydration prop — adding one anyway would be solving a bug that
+cannot occur, and would falsely suggest the store has a persistence layer
+it doesn't. Confirm this reasoning explicitly in the component's doc
+comment (see `src/components/storefront/compare-button.tsx`) so the next
+reader doesn't "fix" a non-bug by copying the wishlist pattern wholesale.
