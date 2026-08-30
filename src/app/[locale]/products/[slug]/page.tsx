@@ -4,15 +4,18 @@ import { getTranslations } from "next-intl/server";
 import { getProductBySlug } from "@/lib/api/products";
 import { getSpecTemplate } from "@/lib/api/spec-templates";
 import { getCompatibilityForProduct } from "@/lib/api/compatibility";
+import { isProductWishlisted } from "@/lib/api/wishlist";
 import { toPublicProduct } from "@/lib/api/serialize-product";
 import { buildProductJsonLd, toSafeJsonLdString } from "@/lib/storefront/jsonld";
 import { absoluteUrl } from "@/lib/storefront/site-url";
 import { localeField } from "@/lib/locale-field";
+import { auth } from "@/auth";
 import { Breadcrumbs } from "@/components/storefront/breadcrumbs";
 import { ProductGallery } from "@/components/storefront/product-gallery";
 import { VariantSelector } from "@/components/storefront/variant-selector";
 import { SpecSheet } from "@/components/storefront/spec-sheet";
 import { CompatibilityWarnings } from "@/components/storefront/compatibility-warnings";
+import { WishlistButton } from "@/components/storefront/wishlist-button";
 import { locales, defaultLocale, type Locale } from "@/i18n";
 
 interface ProductPageProps {
@@ -66,9 +69,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const nameField = localeField(locale, "name");
   const descriptionField = localeField(locale, "description");
 
-  const [template, compatibility] = await Promise.all([
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  const [template, compatibility, initialWishlisted] = await Promise.all([
     getSpecTemplate(product.categoryId),
     getCompatibilityForProduct(product.id),
+    userId ? isProductWishlisted(userId, product.id) : Promise.resolve(false),
   ]);
 
   const publicProduct = toPublicProduct(product);
@@ -97,14 +104,26 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
         <div className="flex flex-col gap-6">
           <div>
-            {publicProduct.brand ? (
-              <p className="text-sm font-medium text-muted-foreground">
-                {publicProduct.brand[nameField]}
-              </p>
-            ) : null}
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              {name}
-            </h1>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                {publicProduct.brand ? (
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {publicProduct.brand[nameField]}
+                  </p>
+                ) : null}
+                <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                  {name}
+                </h1>
+              </div>
+              <WishlistButton
+                productId={publicProduct.id}
+                labels={{
+                  add: t("product.addToWishlist"),
+                  remove: t("product.removeFromWishlist"),
+                }}
+                initialWishlisted={initialWishlisted}
+              />
+            </div>
             <p className="mt-2 text-2xl font-semibold text-foreground">
               ${publicProduct.basePriceUsd.toString()}
             </p>

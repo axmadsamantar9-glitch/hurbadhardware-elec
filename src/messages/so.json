@@ -21,7 +21,15 @@
     "variantUnavailable": "Isku-darkan ma jirto",
     "compatibility": "Waafaqsanaanta",
     "notFound": "Alaabta lama helin",
-    "brand": "Sumadda"
+    "brand": "Sumadda",
+    "addToWishlist": "Ku dar liiska jaceylka",
+    "removeFromWishlist": "Ka saar liiska jaceylka"
+  },
+  "wishlist": {
+    "title": "Liiska Jaceylkayga",
+    "empty": "Liiska jaceylkaagu waa madhan yahay.",
+    "browseProducts": "Baadh Alaabta",
+    "remove": "Ka Saar"
   },
   "cart": {
     "title": "Gaadhiga",
@@ -85,7 +93,8 @@
     "adminPrivileges": "Waxaad lehtaa xuquuqda maamulaha.",
     "goToDashboard": "Tag Dashboard-ka Maamulaha",
     "signOut": "Ka Bax",
-    "yourAccount": "Akaauntiga"
+    "yourAccount": "Akaauntiga",
+    "wishlist": "Liiska Jaceylka"
   },
   "admin": {
     "dashboard": "Dashboard-ka Maamulaha",

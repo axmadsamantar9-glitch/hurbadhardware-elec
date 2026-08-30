@@ -782,3 +782,55 @@ When a prior gate session (here, HUR-16/HUB-33) already documented a specific pr
 **Status:** ✅ VERIFIED
 **Date:** 2026-08-30
 **All 6 Production-Readiness Gates:** GREEN (dogfood accepted as known pre-existing limitation per HUR-16 precedent; security fix and no-new-XSS/no-new-raw-SQL-surface independently re-verified)
+
+## HUR-188/HUB-35: Wishlist — REJECTED despite 6/6 mechanical gates green (2026-08-30)
+
+### A "dead code" export was the smoking gun for a real functional bug the mechanical gates couldn't catch
+
+**Verification Date:** 2026-08-30
+**Item:** HUR-188 (HUB-35) — Wishlist: heart button on product cards + PDP, `/account/wishlist` view page.
+
+**Mechanical gates — all GREEN:** Build ✓ (Next.js 16.3.1, 9 routes incl. `/[locale]/account/wishlist` and `/api/wishlist`). Lint ✓ (0 errors, 6 pre-existing unrelated warnings). Typecheck ✓. Tests 594/594 (up from 584 baseline as expected), coverage 91.19%/85.33%/93.98%/91.93% (all above 80/70/80/80). Dogfood: confirmed no `dogfood` script in `package.json` (`grep -n "dogfood" package.json` → no match) — same pre-existing gap as HUR-16/HUR-187, correctly treated as known limitation not a blocker. Security: independently re-verified every claim — `userId` in `src/app/api/wishlist/route.ts` derived solely from `auth()` session (`session.user.id`), `WishlistMutationSchema` (Zod) has only `productId`, no `userId` field anywhere in the body schema; `src/lib/api/wishlist.ts` scopes every query (`getWishlistProducts`, `getWishlistProductIds`, `addToWishlist`, `removeFromWishlist`) by the `userId` parameter; `addToWishlist` uses a real `db.wishlist.upsert({ where: { userId_productId: { userId, productId } }, ... })` against `@@unique([userId, productId])` (confirmed live in `prisma/schema.prisma` line 588); rate-limit key is `wishlist:${userId}` (namespaced). Scope integrity ✓: `prisma/schema.prisma` diff is empty; grep for cart/checkout/payment/review/admin/comparison across all new wishlist files returned only two false-positive comment matches ("cart-adjacent" doc comment, "admin/uploads/presign" reference path) — zero actual out-of-scope functionality.
+
+**REJECTED anyway — found by tracing an unused export, not by running a gate command:** `src/lib/api/wishlist.ts` exports `getWishlistProductIds(userId)`, whose own doc comment says it exists specifically for "rendering 'is this product wishlisted?' state on cards/PDP without pulling full product rows." It has a passing unit test. But `grep -rn "getWishlistProductIds" src/` outside test files showed **zero callers** — it is never invoked by the PDP (`src/app/[locale]/products/[slug]/page.tsx`) or `ProductCard`/`WishlistButton`. Cross-checked: `WishlistButton` (`src/components/storefront/wishlist-button.tsx`) reads its checked/unchecked state purely from the client-only Zustand store (`useWishlistStore((s) => s.has(productId))`), which starts empty (`productIds: new Set()`) on every fresh mount and is only ever populated by `setAll()`, which is called from exactly one place: `src/app/[locale]/account/wishlist/page.tsx`. Consequence: on a fresh page load (new tab, browser refresh, direct link) the PDP heart button **always renders as "not wishlisted," even for products the signed-in user has already saved**, until/unless the user separately visits `/account/wishlist` first in the same SPA session. This means: (a) the heart button's displayed state lies about ground truth on first paint — a real, user-visible correctness bug in the exact feature the ticket describes ("heart button... reflects wishlist state"), not a cosmetic nit; (b) a user trying to _remove_ an already-wishlisted product via the PDP heart button on a fresh load will have their first click misinterpreted as "add" (harmless no-op server-side thanks to the upsert, but the UI won't let them remove until a second click once local state catches up) — effectively breaking the "remove" half of the add/remove flow from the PDP on first load; (c) the dead `getWishlistProductIds` export is exactly the artifact of an unfinished feature — it was built and tested for a wiring step (initial hydration) that was never completed, which independently fails the "no dead code left in diff" bar in the Definition of Done.
+
+**Why the standard 6 gates missed this:** No test harness exists for `.tsx` client components in this repo (documented repeatedly in qa-test's learnings — `vitest.config.ts` only collects `.ts`), so the actual `WishlistButton`/PDP wiring was never exercised by an automated assertion; qa-test's own entry for this ticket explicitly says "the wiring half... remains verified only by direct code reading" but did not catch this because it checked the _rollback_ wiring (does a failed POST call `remove()`), not the _initial-hydration_ wiring (does anything call `setAll()`/`getWishlistProductIds` before the button first renders). Security-reviewer had no reason to flag this (it's not a security defect). Coverage numbers stayed green because `getWishlistProductIds` has a passing unit test — coverage measures "is this line executed by a test," not "is this line reachable from the actual app."
+
+### Rule going forward
+
+An unused/dead export whose own doc comment names a specific UI-wiring purpose ("for rendering X state on Y component") is a strong signal to trace every claimed call site by hand (`grep -rn <export> src/ | grep -v test`) before trusting green build/lint/typecheck/test/coverage numbers — those five gates only prove the code that exists is internally consistent, not that the feature described in the ticket is actually wired together end-to-end. For any toggle/heart/favorite-style button whose state is meant to reflect persisted server truth, explicitly verify there is a hydration path (server-rendered initial prop, or a client fetch-on-mount) feeding the client state store before first paint — a Zustand/local-state store that starts empty and is only ever populated by one narrow page (here: the dedicated list-view page) will silently make every _other_ entry point into that toggle wrong on first load, which existing automated tests (route tests, data-layer tests, store-logic tests) cannot catch because each of them tests its own layer in isolation, never the cross-layer wiring.
+
+---
+
+## Summary
+
+**Item:** HUR-188 (HUB-35) — Wishlist
+**Status:** ❌ REJECTED — sent back to commerce-engine
+**Date:** 2026-08-30
+**Gate results:** Build/Lint/Typecheck/Tests/Coverage/Dogfood/Security/Scope-integrity all GREEN individually, but overall REJECTED for a real functional defect (missing initial wishlist-status hydration on PDP/product-card heart buttons) discovered by tracing an unused export, not by any single gate command.
+
+## HUR-188/HUB-35: Wishlist — VERIFIED on 3rd gate pass (2026-08-30)
+
+### Two-round rejection resolved cleanly; dead-code check is now a standing gate step for toggle-state features
+
+**Verification Date:** 2026-08-30
+**Item:** HUR-188 (HUB-35) — Wishlist: heart button on product cards + PDP, `/account/wishlist` view page.
+
+**History:** 1st pass rejected for missing initial-hydration wiring (PDP heart button always rendered "not wishlisted" on first paint, discovered by tracing an unused `getWishlistProductIds` export with no callers). Fix: PDP now calls `auth()` + `isProductWishlisted(userId, productId)` server-side and passes the result as an `initialWishlisted` prop into `WishlistButton`, which lazily seeds `useState(initialWishlisted)` — confirmed by direct read of `src/app/[locale]/products/[slug]/page.tsx` and `src/components/storefront/wishlist-button.tsx`. `ProductCard` also threads an optional `wishlist.initiallyWishlisted` through the same prop for card-grid contexts. 2nd pass rejected because the fix left the old `getWishlistProductIds` function (and its describe block) as orphaned dead code — the hydration path now uses `isProductWishlisted` instead, but the superseded function/test were never deleted.
+
+**This pass:** Independently confirmed the removal was real, not just claimed — `grep -rn "getWishlistProductIds" src/` returns zero matches (exit code 1) across both source and test files. Went further than trusting "one function removed": checked all four remaining exports (`getWishlistProducts`, `isProductWishlisted`, `addToWishlist`, `removeFromWishlist`) each have live non-test callers (route.ts, PDP, account/wishlist page) so none of them became newly orphaned as a side effect of the cleanup.
+
+**Mechanical gates:** Build ✓ (10 routes incl. `/[locale]/account/wishlist`, `/api/wishlist`). Lint ✓ (0 errors, 6 pre-existing unrelated warnings). Typecheck ✓ (`npx tsc --noEmit`, empty output). Tests 595/595 (down from 596 by exactly 1, matching the one removed `getWishlistProductIds` test — confirms the deletion didn't silently drop other test coverage). Coverage 91.18%/85.33%/93.93%/91.93% (all ≥ 80/70/80/80). Dogfood: `grep -n "dogfood" package.json` → no match, same pre-existing repo-wide gap as HUR-16/HUB-34, accepted as known limitation per established precedent. Security: reconfirmed `userId` is session-derived only (`auth()` in `route.ts` and now also in the PDP) across all three touched surfaces, never client input — this is the third pass over the same auth/ownership code and the pattern (session-scoped queries, Zod schema with no `userId` field, namespaced rate-limit key) is unchanged from the first two passes. Scope integrity ✓: `prisma/schema.prisma` diff empty (0 lines vs HEAD); grep for cart/checkout/payment/comparison across the wishlist surface returned only benign false positives (translation keys literally named `addToWishlist`/`removeFromWishlist`, and a pre-existing "cart-adjacent" doc comment in `wishlistStore.ts`) — no actual out-of-scope functionality.
+
+### Rule going forward
+
+When a builder's fix for a "missing wiring" defect supersedes an existing function (e.g. a batch-fetch replaced by a single-row check), always re-check for orphaned exports as a direct part of the next gate pass, not just re-run the mechanical commands — `grep -rn <every export in the touched file> src/ | grep -v test` for the touched data-layer file is now a standing verification step here, not a one-off. Also: when a builder claims "removed cleanly," verify the exact expected test-count delta (removed function should correspond to removed test count, e.g. 596 → 595 for one deleted describe block) rather than just checking "all tests pass" — a mismatched delta would indicate either the removal wasn't clean or unrelated tests were accidentally dropped.
+
+---
+
+## Summary
+
+**Item:** HUR-188 (HUB-35) — Wishlist
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-30
+**All 8 Production-Readiness Gates:** GREEN (including scope-integrity and dead-code-orphan checks; 3rd and final gate pass after two rejections for hydration wiring and orphaned dead code, both independently confirmed fixed)

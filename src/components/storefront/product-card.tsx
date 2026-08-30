@@ -3,6 +3,7 @@ import Link from "next/link";
 import { localeField } from "@/lib/locale-field";
 import { sortProductImages } from "@/lib/storefront/images";
 import { Card } from "@/components/ui/card";
+import { WishlistButton } from "@/components/storefront/wishlist-button";
 import type { PublicProductListItem } from "@/lib/api/serialize-product";
 
 interface ProductCardProps {
@@ -10,10 +11,20 @@ interface ProductCardProps {
   locale: string;
   /** Translated "In Stock" / "Out of Stock" / "View Details" strings. */
   labels: { inStock: string; outOfStock: string };
+  /**
+   * Optional wishlist toggle slot (HUB-35). Omitted by default so existing
+   * callers (homepage, category grid) are unaffected; pass labels to opt in
+   * to rendering the heart button in the card's top-right corner.
+   * `initiallyWishlisted` should be `true` when the caller already knows
+   * every card it renders is wishlisted (e.g. /account/wishlist, where that
+   * is true by construction) so the button doesn't flash as "unwishlisted"
+   * before a click.
+   */
+  wishlist?: { add: string; remove: string; initiallyWishlisted?: boolean };
 }
 
 /** Product listing card — used on the homepage and category pages (U6/U7). */
-export function ProductCard({ product, locale, labels }: ProductCardProps) {
+export function ProductCard({ product, locale, labels, wishlist }: ProductCardProps) {
   const nameField = localeField(locale, "name");
   const name = product[nameField];
   const primaryImage = sortProductImages(product.images)[0];
@@ -32,6 +43,15 @@ export function ProductCard({ product, locale, labels }: ProductCardProps) {
               sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
               className="object-cover"
             />
+          ) : null}
+          {wishlist ? (
+            <div className="absolute right-2 top-2">
+              <WishlistButton
+                productId={product.id}
+                labels={wishlist}
+                initialWishlisted={wishlist.initiallyWishlisted}
+              />
+            </div>
           ) : null}
         </div>
         <div className="flex flex-col gap-1 p-4">

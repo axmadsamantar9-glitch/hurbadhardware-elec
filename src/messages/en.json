@@ -21,7 +21,15 @@
     "variantUnavailable": "This combination is not available",
     "compatibility": "Compatibility",
     "notFound": "Product not found",
-    "brand": "Brand"
+    "brand": "Brand",
+    "addToWishlist": "Add to wishlist",
+    "removeFromWishlist": "Remove from wishlist"
+  },
+  "wishlist": {
+    "title": "My Wishlist",
+    "empty": "Your wishlist is empty.",
+    "browseProducts": "Browse Products",
+    "remove": "Remove"
   },
   "cart": {
     "title": "Cart",
@@ -85,7 +93,8 @@
     "adminPrivileges": "You have administrator privileges.",
     "goToDashboard": "Go to Admin Dashboard",
     "signOut": "Sign Out",
-    "yourAccount": "Your Account"
+    "yourAccount": "Your Account",
+    "wishlist": "Wishlist"
   },
   "admin": {
     "dashboard": "Admin Dashboard",

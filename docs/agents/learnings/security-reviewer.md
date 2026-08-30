@@ -1,5 +1,16 @@
 # Security Reviewer Agent — Learnings
 
+## Wishlist Write Endpoint — Ownership Enforcement Done Right (HUR-188/HUB-35, 2026-08-30)
+
+**Symptom:** N/A — this is a positive-pattern confirmation, not a bug found. First genuinely authenticated write endpoint in the storefront code (`src/app/api/wishlist/route.ts`), reviewed GREEN with zero findings above Low.
+
+**Rule going forward:** When reviewing the first authenticated write endpoint for a new resource, the reference-quality pattern to check for (and to point builders at) is:
+
+1. The Zod schema for the mutation body deliberately omits any actor-attribution field (e.g. `userId`) so a client-supplied value is silently stripped by `safeParse`, not merely "ignored by convention" — verify with a test that asserts the downstream call uses the session id even when the client sends a spoofed one (see `src/app/api/wishlist/route.test.ts`'s "ignoring any client-supplied userId" test).
+2. Every data-layer function takes `userId` as an explicit parameter and every Prisma `where` clause includes it (not just the primary lookup key), so even a guessed foreign id (e.g. `productId`) can't cross the ownership boundary — `deleteMany({ where: { userId, productId } })` is the right shape, not `deleteMany({ where: { productId } })` with an ownership check bolted on separately.
+3. A true upsert-on-unique-constraint (`db.<model>.upsert` keyed on a `@@unique([userId, xId])` compound constraint) is the correct idempotency mechanism for "add" endpoints — reject check-then-insert patterns as a race condition risk.
+4. Rate-limit key must be namespaced per-resource and per-user/IP (e.g. `` `wishlist:${userId}` ``), matching the precedent at `src/app/api/admin/uploads/presign/route.ts` — this avoids the cross-endpoint shared-key collision found in the HUR-15 review.
+
 ## HUR-187: Storefront filter/search state — validate numeric bounds at every layer, not just the outer schema (2026-08-30)
 
 **Symptom:** `toGetProductsQuery()` (`src/lib/storefront/query-state.ts`) parsed `priceMin`/`priceMax` with `Number(str)` and only guarded against `NaN`, not `Infinity`/other non-finite values. Since this helper builds a `GetProductsQuery` object directly (bypassing `GetProductsQuerySchema.parse()`, which does enforce `nonnegative()` via zod), a crafted `?priceMin=Infinity` could reach `new PrismaDecimal(Infinity.toString())` in `getProducts()` — Postgres `NUMERIC` columns don't support `Infinity`, so this could throw and 500 the page for a single request (a crash, not a data-exposure issue — Low severity).
