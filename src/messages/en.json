@@ -17,7 +17,11 @@
     "quantity": "Quantity",
     "viewDetails": "View Details",
     "specifications": "Specifications",
-    "reviews": "Reviews"
+    "reviews": "Reviews",
+    "variantUnavailable": "This combination is not available",
+    "compatibility": "Compatibility",
+    "notFound": "Product not found",
+    "brand": "Brand"
   },
   "cart": {
     "title": "Cart",
@@ -106,7 +110,17 @@
     "home": "Home",
     "account": "Account",
     "signIn": "Sign In",
-    "signUp": "Sign Up"
+    "signUp": "Sign Up",
+    "categories": "Categories"
+  },
+  "storefront": {
+    "shopByCategory": "Shop by Category",
+    "featuredProducts": "Featured Products",
+    "viewAllCategories": "View All Categories",
+    "noProducts": "No products found in this category yet.",
+    "categoryNotFound": "Category not found",
+    "previous": "Previous",
+    "next": "Next"
   },
   "errors": {
     "notFound": "Page not found",

@@ -396,6 +396,64 @@ ReturnType<typeof vi.fn<() => Promise<Session | null>>>`, then call
 ambiguity entirely rather than sprinkling `as any`/`as unknown as Session`
 casts at every call site.
 
+## HUR-16: this repo has no JSX/component-render test infra — vitest only runs `.test.ts`, `environment: "node"`, no jsdom/RTL
+
+**Symptom/context:** Writing tests for the first real storefront pages
+(homepage, category, PDP) revealed `vitest.config.ts`'s `test.include` is
+`["src/**/*.test.ts"]` (not `.tsx`) and `environment: "node"` — there is no
+DOM, no `@testing-library/react`, nothing. The only precedent for testing a
+React component (`src/components/ui/card.test.ts`) works around this by
+calling a `forwardRef` component's `.render(props, ref)` method directly and
+asserting on the returned element's `.type`/`.props`, never mounting to a
+DOM. That pattern only works for components with **no hooks** — any
+component calling `useState`/`useEffect`/`useTranslations` etc. throws
+"Invalid hook call" if invoked directly outside React's render context.
+
+**Rule going forward:** For any new interactive (`"use client"`,
+hook-using) storefront component (image gallery switching, variant
+selector, hamburger menu), do NOT attempt to unit-test the rendered/
+interactive behavior in this repo as it stands — there is no infra for it.
+Instead: (1) extract all non-trivial logic into plain, hook-free pure
+functions in `src/lib/storefront/` (e.g. `sortProductImages`,
+`groupVariantOptions`/`findMatchingVariant`, `buildSpecSheet`,
+`buildProductJsonLd`/`buildBreadcrumbJsonLd`, `findCategoryBySlug`) and
+unit-test _those_ exhaustively — they're where the real bugs live anyway;
+(2) keep the "use client" component itself a thin wrapper that just calls
+the pure helper and renders `useState`-driven JSX, with no branching logic
+worth testing on its own; (3) for Server Components (async function,
+no hooks — e.g. the actual `page.tsx` files), invoking the async function
+directly and awaiting it is possible in principle (no dispatcher needed)
+but wasn't done here for the page components themselves, only the
+extracted helpers — treat full page-level rendering/interaction coverage
+as a known gap to flag explicitly in status reports, not something to
+silently skip. Do not add `jsdom`/`@testing-library/react` yourself to
+close this gap unless explicitly asked — that's an infra decision for
+qa-test/architect, not a unilateral addition inside a feature ticket.
+
+## `ProductVariant.attributes` (`Json?`) has no schema-enforced shape — every reader must defensively coerce
+
+**Symptom/context:** Building the PDP variant selector (U7) needed to read
+per-variant attribute key/value pairs (e.g. storage/color) from
+`ProductVariant.attributes`, a bare `Json?` Prisma column with zero
+seed data and zero schema-level shape constraint (see the column's doc
+comment in `prisma/schema.prisma` — deliberately loose, mirroring
+`ProductSpec`'s free-text philosophy).
+
+**Rule going forward:** Never assume `attributes` is `Record<string,
+string>` without runtime-checking it first — a malformed/legacy row (null,
+an array, a non-string value under some key) must degrade gracefully
+(treated as "no attributes"/skip that key) rather than throwing and taking
+down the whole PDP. See `readVariantAttributes()` in
+`src/lib/storefront/variants.ts` for the coercion pattern (guards `typeof
+!== "object"`, `Array.isArray`, and per-value `typeof !== "string"`) — reuse
+it rather than re-deriving ad hoc `as Record<string,string>` casts at each
+new call site. As of this ticket, zero `ProductVariant` rows exist in the
+seed data, so the variant selector UI is untested against real DB data —
+only against hand-built fixtures in `variants.test.ts`; flag this as a real
+gap whenever seed data for variants eventually lands (verify the selector
+against actual seeded storage/color combinations at that point, not just
+the unit tests).
+
 ## `x || "literal"` fallback silently defeats a zod `.default()` downstream
 
 **Symptom:** `src/app/api/products/route.ts`'s `parseQueryParams()` had

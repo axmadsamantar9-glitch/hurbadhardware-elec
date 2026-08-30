@@ -1,37 +1,78 @@
-"use client";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import { getCategories } from "@/lib/api/categories";
+import { getProducts } from "@/lib/api/products";
+import { toPublicProducts } from "@/lib/api/serialize-product";
+import { CategoryCard } from "@/components/storefront/category-card";
+import { ProductCard } from "@/components/storefront/product-card";
+import { locales, defaultLocale, type Locale } from "@/i18n";
 
-import { useTranslations } from "next-intl";
-import Link from "next/link";
+export const metadata: Metadata = {
+  title: "HurbadHardware — Electronics for East Africa",
+  description:
+    "Shop smartphones, laptops, tablets, networking equipment, CCTV systems, printers, and computer components across East Africa.",
+};
 
-export default function HomePage() {
-  const t = useTranslations();
+/** Number of "featured" products shown on the homepage (newest-first — see AGENTS.md note on isFeatured). */
+const FEATURED_PRODUCT_COUNT = 8;
+
+export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale: rawLocale } = await params;
+  const locale = (locales.includes(rawLocale as Locale) ? rawLocale : defaultLocale) as Locale;
+
+  const t = await getTranslations({ locale });
+
+  const [categories, productsResult] = await Promise.all([
+    getCategories(),
+    getProducts({
+      page: 1,
+      limit: FEATURED_PRODUCT_COUNT,
+      search: "",
+      category: "",
+      brand: "",
+      sort: "newest",
+    }),
+  ]);
+
+  const featuredProducts = toPublicProducts(productsResult.products);
 
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
+    <main className="flex-1">
+      <section className="border-b border-border bg-muted px-4 py-16 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 text-center">
+          <h1 className="max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             {t("home.welcome")}
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            {t("home.description")}
-          </p>
+          <p className="max-w-xl text-lg text-muted-foreground">{t("home.description")}</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <Link
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="#"
-          >
-            {t("home.browse")}
-          </Link>
-          <Link
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="#"
-          >
-            {t("home.getStarted")}
-          </Link>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <h2 className="text-2xl font-semibold text-foreground">{t("storefront.shopByCategory")}</h2>
+        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {categories.map((category) => (
+            <CategoryCard key={category.id} category={category} locale={locale} />
+          ))}
         </div>
-      </main>
-    </div>
+      </section>
+
+      {featuredProducts.length > 0 ? (
+        <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+          <h2 className="text-2xl font-semibold text-foreground">
+            {t("storefront.featuredProducts")}
+          </h2>
+          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {featuredProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                locale={locale}
+                labels={{ inStock: t("product.inStock"), outOfStock: t("product.outOfStock") }}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </main>
   );
 }
