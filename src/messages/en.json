@@ -23,13 +23,26 @@
     "notFound": "Product not found",
     "brand": "Brand",
     "addToWishlist": "Add to wishlist",
-    "removeFromWishlist": "Remove from wishlist"
+    "removeFromWishlist": "Remove from wishlist",
+    "addToCompare": "Add to compare",
+    "removeFromCompare": "Remove from compare",
+    "compareFull": "You can compare up to 3 products — remove one first"
   },
   "wishlist": {
     "title": "My Wishlist",
     "empty": "Your wishlist is empty.",
     "browseProducts": "Browse Products",
     "remove": "Remove"
+  },
+  "compare": {
+    "title": "Compare Products",
+    "viewCompare": "Compare ({count})",
+    "empty": "No products selected for comparison yet.",
+    "browseProducts": "Browse Products",
+    "remove": "Remove",
+    "clear": "Clear All",
+    "specifications": "Specifications",
+    "notFound": "None of the selected products could be found."
   },
   "cart": {
     "title": "Cart",

@@ -1,5 +1,11 @@
 # Security Reviewer Agent — Learnings
 
+## HUR-26: Product Comparison — Cap-Before-Query Fully Neutralizes Unbounded ?ids= Param (2026-08-30)
+
+**Summary:** Reviewed the new comparison feature (client Zustand selection + URL-driven `?ids=a,b,c` Server Component page). `parseCompareIdsParam()` (`src/lib/storefront/compare.ts`) dedupes via `Set` and `.slice(0, MAX_COMPARE_PRODUCTS=3)` before the ids ever reach `getProductsByIds()`'s Prisma `id: { in: ids }` query — confirmed an attacker-supplied `?ids=` with thousands of values still only produces a 3-element `IN (...)`. `getProductsByIds()` correctly filters `isActive: true` (matching the rest of the catalog) and its raw `ProductWithRelations` return is redacted via `toPublicProduct()` before reaching JSX. No new `dangerouslySetInnerHTML` in the diff (grep-verified — only the two pre-existing, already-fixed HUR-16 call sites remain).
+
+**Rule going forward:** When a feature has a UI-enforced cap (e.g. "select up to 3") but also exposes a URL param an attacker can set directly, verify the cap is enforced in the _parsing_ function itself (before the value reaches any DB query), not just assumed from the UI's own affordances — this is the correct pattern to point future builders at.
+
 ## Wishlist Write Endpoint — Ownership Enforcement Done Right (HUR-188/HUB-35, 2026-08-30)
 
 **Symptom:** N/A — this is a positive-pattern confirmation, not a bug found. First genuinely authenticated write endpoint in the storefront code (`src/app/api/wishlist/route.ts`), reviewed GREEN with zero findings above Low.

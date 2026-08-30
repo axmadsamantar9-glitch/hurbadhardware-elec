@@ -19,6 +19,7 @@ import { Pagination } from "@/components/storefront/pagination";
 import { SearchBar } from "@/components/storefront/search-bar";
 import { SortDropdown } from "@/components/storefront/sort-dropdown";
 import { FilterSidebar } from "@/components/storefront/filter-sidebar";
+import { CompareBar } from "@/components/storefront/compare-bar";
 import { locales, defaultLocale, type Locale } from "@/i18n";
 
 interface CategoryPageProps {
@@ -133,6 +134,11 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                 product={product}
                 locale={locale}
                 labels={{ inStock: t("product.inStock"), outOfStock: t("product.outOfStock") }}
+                compare={{
+                  add: t("product.addToCompare"),
+                  remove: t("product.removeFromCompare"),
+                  full: t("product.compareFull"),
+                }}
               />
             ))}
           </div>
@@ -144,6 +150,11 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
           />
         </>
       )}
+      <CompareBar
+        locale={locale}
+        viewLabel={t("compare.viewCompare")}
+        clearLabel={t("compare.clear")}
+      />
     </main>
   );
 }

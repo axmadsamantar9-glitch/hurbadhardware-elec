@@ -17,6 +17,7 @@ import { SearchBar } from "@/components/storefront/search-bar";
 import { SortDropdown } from "@/components/storefront/sort-dropdown";
 import { FilterSidebar } from "@/components/storefront/filter-sidebar";
 import { Pagination } from "@/components/storefront/pagination";
+import { CompareBar } from "@/components/storefront/compare-bar";
 import { locales, defaultLocale, type Locale } from "@/i18n";
 
 export const metadata: Metadata = {
@@ -126,6 +127,11 @@ export default async function HomePage({ params, searchParams }: HomePageProps) 
                   product={product}
                   locale={locale}
                   labels={{ inStock: t("product.inStock"), outOfStock: t("product.outOfStock") }}
+                  compare={{
+                    add: t("product.addToCompare"),
+                    remove: t("product.removeFromCompare"),
+                    full: t("product.compareFull"),
+                  }}
                 />
               ))}
             </div>
@@ -137,6 +143,11 @@ export default async function HomePage({ params, searchParams }: HomePageProps) 
             />
           </>
         )}
+        <CompareBar
+          locale={locale}
+          viewLabel={t("compare.viewCompare")}
+          clearLabel={t("compare.clear")}
+        />
       </section>
     </main>
   );

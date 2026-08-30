@@ -3,6 +3,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import {
   getProducts,
   getProductBySlug,
+  getProductsByIds,
   GetProductsQuerySchema,
   DEFAULT_PAGE_SIZE,
 } from "./products";
@@ -619,5 +620,37 @@ describe("getProductBySlug", () => {
     vi.mocked(db.product.findUnique).mockResolvedValue(null);
     const result = await getProductBySlug("does-not-exist");
     expect(result).toBeNull();
+  });
+});
+
+// HUR-26: getProductsByIds (comparison page)
+describe("getProductsByIds", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const fullProduct = { ...mockProduct, specs: [], variants: [] };
+
+  it("returns [] without querying the DB when ids is empty", async () => {
+    const result = await getProductsByIds([]);
+    expect(result).toEqual([]);
+    expect(db.product.findMany).not.toHaveBeenCalled();
+  });
+
+  it("queries active products by id with full relations included", async () => {
+    vi.mocked(db.product.findMany).mockResolvedValue([fullProduct] as never);
+
+    const result = await getProductsByIds(["1", "2"]);
+
+    expect(db.product.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ["1", "2"] }, isActive: true },
+      include: {
+        images: true,
+        specs: true,
+        variants: true,
+        category: true,
+        brand: true,
+        manufacturer: true,
+      },
+    });
+    expect(result).toEqual([fullProduct]);
   });
 });

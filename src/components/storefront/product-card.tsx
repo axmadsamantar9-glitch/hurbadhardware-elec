@@ -4,6 +4,7 @@ import { localeField } from "@/lib/locale-field";
 import { sortProductImages } from "@/lib/storefront/images";
 import { Card } from "@/components/ui/card";
 import { WishlistButton } from "@/components/storefront/wishlist-button";
+import { CompareButton } from "@/components/storefront/compare-button";
 import type { PublicProductListItem } from "@/lib/api/serialize-product";
 
 interface ProductCardProps {
@@ -21,10 +22,16 @@ interface ProductCardProps {
    * before a click.
    */
   wishlist?: { add: string; remove: string; initiallyWishlisted?: boolean };
+  /**
+   * Optional compare toggle slot (HUR-26). Same opt-in-slot pattern as
+   * `wishlist` above; renders in the card's top-left corner (wishlist owns
+   * top-right) so both can be enabled on the same grid.
+   */
+  compare?: { add: string; remove: string; full: string };
 }
 
 /** Product listing card — used on the homepage and category pages (U6/U7). */
-export function ProductCard({ product, locale, labels, wishlist }: ProductCardProps) {
+export function ProductCard({ product, locale, labels, wishlist, compare }: ProductCardProps) {
   const nameField = localeField(locale, "name");
   const name = product[nameField];
   const primaryImage = sortProductImages(product.images)[0];
@@ -51,6 +58,11 @@ export function ProductCard({ product, locale, labels, wishlist }: ProductCardPr
                 labels={wishlist}
                 initialWishlisted={wishlist.initiallyWishlisted}
               />
+            </div>
+          ) : null}
+          {compare ? (
+            <div className="absolute left-2 top-2">
+              <CompareButton productId={product.id} labels={compare} />
             </div>
           ) : null}
         </div>

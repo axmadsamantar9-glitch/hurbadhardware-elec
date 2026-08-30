@@ -584,3 +584,40 @@ override just the function under test, construct a plain
 `new Request(url, { headers: { "x-forwarded-for": ip } })`, and call
 `GET()` directly -- no live server or DB needed, and it exercises the real
 rate-limiting + redaction + param-parsing wiring end to end.
+
+## HUR-26: a non-persisted client selection store can sidestep HUB-35's hydration lesson entirely, by design
+
+**Symptom/context:** HUB-35's wishlist feature needed an `initial*` prop
+hydration pattern because its Zustand store's "true" state lives in the
+DB and the store starts empty on every page load — rendering straight from
+the store on mount is wrong until a fetch resolves. HUR-26 (product
+comparison, up to 3 products) looked like it would need the identical fix
+for its `CompareButton`/`useCompareStore`, but it doesn't.
+
+**Cause:** The ticket scoped comparison selection as explicitly
+non-persisted (no schema change, no DB, no localStorage) — selection lives
+only in an in-memory Zustand store for the current tab, reset on reload.
+Because there is no external source of truth for the store to be out of
+sync with, the server-rendered first paint and the client's initial store
+state are _always_ identical (both "nothing selected") — there is no
+window where the UI can be wrong. The one place that does need
+first-paint-correct data — the actual `/products/compare` comparison
+table — was designed to read a `?ids=a,b,c` URL query param and fetch
+server-side instead of reading the client store at all (mirroring the
+existing `query-state.ts`/`buildFilterHref` pattern), so "remove one
+product" and "clear all" are plain `<Link href={newUrl}>`s, not
+client-state mutations — no effect-based sync, no hydration mismatch,
+no `useState`/`useEffect` on the comparison table at all.
+
+**Rule going forward:** Before reflexively re-applying the `initial*`-prop
+hydration fix to a new client-store-backed feature, first ask whether the
+new store actually has an external (server/DB) source of truth it can
+diverge from. If a feature is deliberately scoped as ephemeral
+tab-local-only state with no persistence, the correct fix is architectural
+(don't let anything performance/SEO/bookmark-sensitive depend on the store
+for its first render; drive that from the URL or a server prop instead),
+not a hydration prop — adding one anyway would be solving a bug that
+cannot occur, and would falsely suggest the store has a persistence layer
+it doesn't. Confirm this reasoning explicitly in the component's doc
+comment (see `src/components/storefront/compare-button.tsx`) so the next
+reader doesn't "fix" a non-bug by copying the wishlist pattern wholesale.

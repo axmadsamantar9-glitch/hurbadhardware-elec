@@ -16,6 +16,7 @@ import { VariantSelector } from "@/components/storefront/variant-selector";
 import { SpecSheet } from "@/components/storefront/spec-sheet";
 import { CompatibilityWarnings } from "@/components/storefront/compatibility-warnings";
 import { WishlistButton } from "@/components/storefront/wishlist-button";
+import { CompareButton } from "@/components/storefront/compare-button";
 import { locales, defaultLocale, type Locale } from "@/i18n";
 
 interface ProductPageProps {
@@ -115,14 +116,24 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   {name}
                 </h1>
               </div>
-              <WishlistButton
-                productId={publicProduct.id}
-                labels={{
-                  add: t("product.addToWishlist"),
-                  remove: t("product.removeFromWishlist"),
-                }}
-                initialWishlisted={initialWishlisted}
-              />
+              <div className="flex gap-2">
+                <WishlistButton
+                  productId={publicProduct.id}
+                  labels={{
+                    add: t("product.addToWishlist"),
+                    remove: t("product.removeFromWishlist"),
+                  }}
+                  initialWishlisted={initialWishlisted}
+                />
+                <CompareButton
+                  productId={publicProduct.id}
+                  labels={{
+                    add: t("product.addToCompare"),
+                    remove: t("product.removeFromCompare"),
+                    full: t("product.compareFull"),
+                  }}
+                />
+              </div>
             </div>
             <p className="mt-2 text-2xl font-semibold text-foreground">
               ${publicProduct.basePriceUsd.toString()}

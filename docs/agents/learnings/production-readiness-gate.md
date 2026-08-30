@@ -834,3 +834,29 @@ When a builder's fix for a "missing wiring" defect supersedes an existing functi
 **Status:** ✅ VERIFIED
 **Date:** 2026-08-30
 **All 8 Production-Readiness Gates:** GREEN (including scope-integrity and dead-code-orphan checks; 3rd and final gate pass after two rejections for hydration wiring and orphaned dead code, both independently confirmed fixed)
+
+## HUR-26 (HUB-36): Product Comparison (2026-08-30)
+
+### All Gates Passed — Item Verified; clean single-workstream diff (no dirty-tree contamination this time)
+
+**Verification Date:** 2026-08-30
+**Item:** HUR-26/HUB-36 — Product Comparison: select up to 3 products, side-by-side spec comparison, remove/clear. Client-only Zustand selection state, URL-driven Server Component comparison page, no schema change, no persistence.
+
+**Gate Results:** Build ✓ (Turbopack, `/[locale]/products/compare` route present), Lint ✓ (0 errors, 6 pre-existing unrelated warnings in `prisma/manual-scripts/`, rate-limit test/config files — none touched by this ticket), Typecheck ✓, Tests 632/632 (up from 596 pre-ticket baseline, matching the pipeline's stated expectation exactly), coverage 91.71%/85.77%/94.59%/92.38% (all ≥ 80/70/80/80), Dogfood — same pre-existing gap as every prior storefront ticket this session (no `dogfood` script in `package.json`), correctly treated as a known limitation not a blocker, Security ✓ (independently re-verified, see below).
+
+**Independent security re-verification (didn't just trust the pipeline's prior GREEN report):** Read `parseCompareIdsParam()` in `src/lib/storefront/compare.ts` — confirmed `.slice(0, max)` caps the deduplicated id list to 3 _before_ it's ever passed to `getProductsByIds()`. Read `getProductsByIds()` in `src/lib/api/products.ts` — confirmed genuine Prisma parameterization (`where: { id: { in: ids }, isActive: true }`), no raw SQL, no string concatenation. Read the comparison page — confirmed it maps every fetched product through `toPublicProduct()` before either building spec rows or handing data to `CompareTable`. Grepped for `dangerouslySetInnerHTML` repo-wide — exactly the two pre-existing HUR-16 sites (`[slug]/page.tsx` JSON-LD, `breadcrumbs.tsx`), zero new ones. Independently verified `en.json`/`so.json` key parity for every new `compare.*` and `product.*Compare*` key via a flatten-and-diff script (zero orphans either direction) — this repo has a history (HUR-13/175 entry above) of i18n key-parity issues, so this is now a standard check for any ticket that touches `src/messages/`.
+
+**Scope integrity (clean single-workstream diff, unlike several recent tickets):** `git diff --name-only` + `git ls-files --others --exclude-standard` showed exactly: the 8 new compare files, `product-card.tsx` (opt-in `compare` slot, mirrors the pre-existing `wishlist` slot pattern exactly), `homepage`/`category`/`[slug]` pages (wiring the new slot + `CompareBar`/`CompareButton` in, nothing else changed — confirmed via full diff read, not just file list), `products.ts`/`products.test.ts` (new `getProductsByIds()` + its test only), `en.json`/`so.json` (new keys only, existing keys untouched), and learnings docs. `prisma/schema.prisma` diff empty (both working-tree and against HEAD). No wishlist/cart/checkout/payment/search-filter-sort logic touched — the one line that looked risky (PDP's existing `WishlistButton` block) was only re-wrapped in a `<div className="flex gap-2">` to sit beside the new `CompareButton`; its own props (`productId`, `labels`, `initialWishlisted`) are byte-for-byte unchanged.
+
+### Rule Going Forward
+
+When a ticket adds new i18n message keys, run a flatten-and-diff parity check between `en.json` and `so.json` scoped to just the new keys (not the whole file) — this repo has had real key-parity gaps before (HUR-13/175) and it's a 5-line Node one-liner, cheap enough to run on every ticket that touches `src/messages/`.
+
+---
+
+## Summary
+
+**Item:** HUR-26/HUB-36 — Product Comparison
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-30
+**All 6 Production-Readiness Gates:** GREEN (Dogfood accepted as known pre-existing limitation, not a blocker)
