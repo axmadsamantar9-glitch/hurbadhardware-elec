@@ -739,3 +739,12 @@ When a live concurrency claim has already been verified twice (builder + qa-test
 **Status:** ✅ VERIFIED
 **Date:** 2026-08-30
 **All 10 Production-Readiness Gates:** GREEN (including independently-verified migration integrity, 3rd-independent-run concurrency re-verification with matching exact outcomes, and scope-integrity-by-absence)
+
+## HUB-33/HUR-16: Customer Storefront (2026-08-30)
+
+### All Six Gates Passed — Item Verified, No New Findings
+
+**Verification Date:** 2026-08-30
+**Item:** HUB-33 (HUR-16) — Customer Storefront: homepage, category pages, PDP, image gallery, variant selector, spec sheet, compatibility warnings.
+
+**Rule going forward:** When a security fix lands as a targeted diff on top of an already-committed feature commit, diff against the feature's _pre-feature_ parent commit (not just the post-feature base named in the handoff) to review the entire feature's file scope in one pass — otherwise a narrow "uncommitted work" diff (here, just 7 files for the XSS fix) can look deceptively small and hide that the real thing being gated is a 30-file, ~1650-line feature already sitting in a single prior commit. `git diff <base>~1 -- .` surfaced the true scope; `git diff <base> -- .` alone would have missed reviewing 23 of the 30 files.

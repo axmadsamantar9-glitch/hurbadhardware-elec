@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "@/lib/storefront/jsonld";
+import {
+  buildBreadcrumbJsonLd,
+  toSafeJsonLdString,
+  type BreadcrumbItem,
+} from "@/lib/storefront/jsonld";
 
 interface BreadcrumbsProps {
   /** Ordered from the site root ("Home") to the current page. The last item is not linked. */
@@ -44,7 +48,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
       {/* JSON-LD requires raw <script> content; input is fully controlled (server-built object, never user HTML). */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: toSafeJsonLdString(jsonLd) }}
       />
     </>
   );

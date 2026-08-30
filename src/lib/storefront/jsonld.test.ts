@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Decimal } from "@prisma/client/runtime/library";
-import { buildBreadcrumbJsonLd, buildProductJsonLd } from "./jsonld";
+import { buildBreadcrumbJsonLd, buildProductJsonLd, toSafeJsonLdString } from "./jsonld";
 import type { PublicProductWithRelations } from "@/lib/api/serialize-product";
 
 describe("buildBreadcrumbJsonLd", () => {
@@ -146,5 +146,22 @@ describe("buildProductJsonLd", () => {
     const product = makeProduct();
     const result = buildProductJsonLd(product, { url: "https://x", locale: "en" });
     expect(JSON.stringify(result)).not.toContain("stockQuantity");
+  });
+});
+
+describe("toSafeJsonLdString", () => {
+  it("escapes </script> so it cannot close a surrounding <script> tag", () => {
+    const product = makeProduct({ nameEn: "Foo</script><script>alert(1)</script>" });
+    const result = buildProductJsonLd(product, { url: "https://x", locale: "en" });
+
+    const serialized = toSafeJsonLdString(result);
+
+    expect(serialized).not.toContain("</script>");
+    // Only `<` needs escaping to defeat the browser's HTML tag scanner (it looks
+    // for a literal "<" byte); `>` is left as-is since JSON.stringify never
+    // needed to escape it and it plays no role in tag-closing detection.
+    expect(serialized).toContain("\\u003c/script>");
+    // Round-trips back to the original string once parsed as JSON in a browser.
+    expect(JSON.parse(serialized).name).toBe("Foo</script><script>alert(1)</script>");
   });
 });

@@ -1,5 +1,17 @@
 # Security Reviewer Agent — Learnings
 
+## HUR-16: Storefront JSON-LD Injection — Unescaped `</script>` in dangerouslySetInnerHTML (2026-08-30)
+
+**Symptom:** `src/lib/storefront/jsonld.ts`'s `buildProductJsonLd`/`buildBreadcrumbJsonLd` output was injected into the page via `dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}` in both `src/app/[locale]/products/[slug]/page.tsx` and `src/components/storefront/breadcrumbs.tsx`, with no escaping of `<`/`</script`/U+2028/U+2029 sequences. `JSON.stringify` alone does not neutralize a literal `</script>` substring inside a string value — if it ever appeared in a product/category/brand name, it would close the `<script type="application/ld+json">` tag early and let a following `<script>...</script>` sequence execute in the page.
+
+**Cause:** JSON-LD is JSON injected into an HTML `<script>` context, a different escaping domain than plain JSX text interpolation (which is safe by default). Builders correctly kept the JSON-LD _data_ redacted (typed to only accept `PublicProduct*`, verified stockQuantity-free by a test) but didn't add the separate HTML-context escaping step JSON-in-`<script>` requires.
+
+**Fix applied:** added `toSafeJsonLdString()` to `jsonld.ts` (escapes `<` to `<` before `dangerouslySetInnerHTML`) and switched both call sites to use it; added a regression test asserting a name containing `</script><script>alert(1)</script>` round-trips safely through `JSON.parse` after serialization but never contains a literal `</script>` in the serialized string.
+
+**Rule going forward:** Any `dangerouslySetInnerHTML` used to inject `JSON.stringify(...)` output into a `<script>` tag (JSON-LD or otherwise) must escape `<` before assignment to `__html`. Flag any new/existing JSON-LD or inline-script-injection site that skips this as at least High if the underlying data has _any_ future path to non-seed/non-hardcoded input (admin CMS fields, user-generated content), even if today's data source is fully trusted — the redaction/typing safeguards that stop admin-only _fields_ (stockQuantity, suppliers) from leaking say nothing about HTML-context escaping of the fields that _are_ meant to be public (names, descriptions).
+
+**Process note:** The security-reviewer subagent that found this had only Read/Glob/Grep tools available and could not write this entry itself — handed the exact text back to the orchestrator, who applied both the fix and this entry. Confirm security-reviewer subagent invocations get Edit/Write access to `docs/agents/learnings/` specifically going forward, not just general repo access, so this stops needing a manual carry-over.
+
 ## HUB-29: Inventory Ledger — Atomic Guarded UPDATE, createdBy Trust Boundary (2026-08-30)
 
 **Summary:** Reviewed `src/lib/inventory.ts`'s `adjustStock()`, the first `$executeRaw` (not `$queryRaw`) usage this session, implementing PRD §52 Rule #3 (no oversell under concurrency). Confirmed the raw UPDATE uses genuine tagged-template parameterization (no string concatenation/interpolation), the oversell guard (`stock_quantity + delta >= 0`) is inside the same SQL WHERE clause as the UPDATE (atomic, no TOCTOU read-then-write gap), and the `InventoryLog` write + stock UPDATE run in one `$transaction` (confirmed via the live tests: a rejected concurrent call leaves zero residual InventoryLog rows, proving rollback works, not just the success path).

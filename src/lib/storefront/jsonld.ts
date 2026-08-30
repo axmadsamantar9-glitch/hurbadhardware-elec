@@ -11,6 +11,17 @@
 import type { PublicProductWithRelations } from "@/lib/api/serialize-product";
 import { localeField } from "@/lib/locale-field";
 
+/**
+ * Serializes a JSON-LD object for safe injection into a <script> tag.
+ * JSON.stringify alone does not escape `<`, so a product/category/brand name
+ * containing a literal `</script>` would close the tag early and let
+ * following markup execute — this escapes `<` to its unicode form, which
+ * JSON parsers treat identically but browsers cannot interpret as a tag.
+ */
+export function toSafeJsonLdString(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
 export interface BreadcrumbItem {
   name: string;
   url: string;

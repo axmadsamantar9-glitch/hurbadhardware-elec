@@ -5,7 +5,7 @@ import { getProductBySlug } from "@/lib/api/products";
 import { getSpecTemplate } from "@/lib/api/spec-templates";
 import { getCompatibilityForProduct } from "@/lib/api/compatibility";
 import { toPublicProduct } from "@/lib/api/serialize-product";
-import { buildProductJsonLd } from "@/lib/storefront/jsonld";
+import { buildProductJsonLd, toSafeJsonLdString } from "@/lib/storefront/jsonld";
 import { absoluteUrl } from "@/lib/storefront/site-url";
 import { localeField } from "@/lib/locale-field";
 import { Breadcrumbs } from "@/components/storefront/breadcrumbs";
@@ -146,7 +146,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       {/* JSON-LD requires raw <script> content; input is server-built from the redacted public product shape, never user HTML. */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: toSafeJsonLdString(jsonLd) }}
       />
     </main>
   );
