@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -63,4 +64,14 @@ const nextConfig: NextConfig = {
   // rules rather than this file.
 };
 
-export default nextConfig;
+// Wires src/i18n.ts (the getRequestConfig module) into the build so the
+// server can resolve it at runtime -- without this plugin wrapper, the
+// production build throws "Couldn't find next-intl config file" on every
+// [locale] request (500, surfacing as a blank page), even though `next dev`
+// resolves the conventional src/i18n.ts path without it.
+// This repo's request-config module lives at src/i18n.ts (a single file),
+// not the plugin's default convention path (src/i18n/request.ts), so the
+// location must be passed explicitly.
+const withNextIntl = createNextIntlPlugin("./src/i18n.ts");
+
+export default withNextIntl(nextConfig);
