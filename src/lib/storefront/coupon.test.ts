@@ -1,5 +1,11 @@
-import { describe, it, expect } from "vitest";
-import { evaluateCoupon, type CouponRecordLike } from "./coupon";
+import { describe, it, expect, vi } from "vitest";
+import {
+  evaluateCoupon,
+  redeemCoupon,
+  CouponRedemptionRaceError,
+  type CouponRecordLike,
+} from "./coupon";
+import type { Prisma } from "@prisma/client";
 
 const NOW = new Date("2026-08-31T00:00:00.000Z");
 
@@ -77,5 +83,23 @@ describe("evaluateCoupon", () => {
 
   it("checks existence before inactive/expired/etc (not_found short-circuits)", () => {
     expect(evaluateCoupon(null, 0, NOW)).toEqual({ valid: false, reason: "not_found" });
+  });
+});
+
+describe("redeemCoupon", () => {
+  function makeTx(affected: number) {
+    return {
+      $executeRaw: vi.fn().mockResolvedValue(affected),
+    } as unknown as Prisma.TransactionClient;
+  }
+
+  it("resolves without throwing when the guarded UPDATE affects 1 row", async () => {
+    const tx = makeTx(1);
+    await expect(redeemCoupon(tx, "coupon-1")).resolves.toBeUndefined();
+  });
+
+  it("throws CouponRedemptionRaceError when the guarded UPDATE affects 0 rows", async () => {
+    const tx = makeTx(0);
+    await expect(redeemCoupon(tx, "coupon-1")).rejects.toBeInstanceOf(CouponRedemptionRaceError);
   });
 });
