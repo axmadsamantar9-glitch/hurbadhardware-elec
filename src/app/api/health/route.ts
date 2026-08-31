@@ -38,34 +38,43 @@ export async function GET(request?: NextRequest) {
     correlationId,
   };
 
-  // Extra connection diagnostics only for callers who present CRON_SECRET —
-  // hostname/port/pgbouncer aren't credentials, but this still isn't public
-  // information by default. Never include user, password, or the raw URL.
+  // Connection topology (hostname/port/pooler mode) is not a credential — the
+  // same info is already embedded in Prisma's own connection-failure message
+  // — so it's reported unconditionally to make this deployable's actual
+  // runtime config provable without a round-trip through a dashboard/secret.
+  // Never include the user, password, or raw connection string.
+  const rawUrl = process.env.DATABASE_URL;
+  let hostname: string | null = null;
+  let port: string | null = null;
+  let pgbouncer = false;
+  let connectionLimit: string | null = null;
+  if (rawUrl) {
+    try {
+      const parsed = new URL(rawUrl);
+      hostname = parsed.hostname;
+      port = parsed.port || null;
+      pgbouncer = parsed.searchParams.get("pgbouncer") === "true";
+      connectionLimit = parsed.searchParams.get("connection_limit");
+    } catch {
+      // malformed URL: report presence only, not the parse failure detail
+    }
+  }
+  body.diagnostics = {
+    databaseUrlPresent: Boolean(rawUrl),
+    hostname,
+    port,
+    pgbouncer,
+    connectionLimit,
+  };
+
+  // The raw (sanitized) Prisma error text stays gated behind CRON_SECRET —
+  // more detail than topology alone, so it's kept out of a fully public
+  // response.
   const providedSecret = request?.headers.get("x-diagnostic-secret") ?? null;
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && providedSecret === cronSecret) {
-    const rawUrl = process.env.DATABASE_URL;
-    let hostname: string | null = null;
-    let port: string | null = null;
-    let pgbouncer = false;
-    if (rawUrl) {
-      try {
-        const parsed = new URL(rawUrl);
-        hostname = parsed.hostname;
-        port = parsed.port || null;
-        pgbouncer = parsed.searchParams.get("pgbouncer") === "true";
-      } catch {
-        // malformed URL: report presence only, not the parse failure detail
-      }
-    }
-    body.diagnostics = {
-      databaseUrlPresent: Boolean(rawUrl),
-      hostname,
-      port,
-      pgbouncer,
-      errorCode: errorCode ?? null,
-      errorMessage: errorMessage ?? null,
-    };
+    (body.diagnostics as Record<string, unknown>).errorCode = errorCode ?? null;
+    (body.diagnostics as Record<string, unknown>).errorMessage = errorMessage ?? null;
   }
 
   logger.info("Health check", { ...body, durationMs: Date.now() - startedAt });
