@@ -8,7 +8,7 @@
  * note instead of guessing.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   findMatchingVariant,
@@ -22,9 +22,16 @@ type PublicVariant = Omit<ProductVariant, "stockQuantity"> & { inStock: boolean 
 
 interface VariantSelectorProps {
   variants: PublicVariant[];
+  /**
+   * Optional callback fired whenever the matched variant changes (including
+   * to `undefined` for an unmatched combination) -- lets a parent (e.g. the
+   * PDP's add-to-cart section, HUR-190) know which variant, if any, is
+   * currently selected without this component needing to know about carts.
+   */
+  onMatchedVariantChange?: (variant: PublicVariant | undefined) => void;
 }
 
-export function VariantSelector({ variants }: VariantSelectorProps) {
+export function VariantSelector({ variants, onMatchedVariantChange }: VariantSelectorProps) {
   const t = useTranslations();
   const options = useMemo(() => groupVariantOptions(variants), [variants]);
   const attributeKeys = Object.keys(options);
@@ -38,9 +45,14 @@ export function VariantSelector({ variants }: VariantSelectorProps) {
     return initial;
   });
 
-  if (attributeKeys.length === 0) return null;
-
   const matched = findMatchingVariant(variants, selection);
+
+  useEffect(() => {
+    onMatchedVariantChange?.(matched);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matched?.id]);
+
+  if (attributeKeys.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-4">

@@ -12,7 +12,7 @@ import { localeField } from "@/lib/locale-field";
 import { auth } from "@/auth";
 import { Breadcrumbs } from "@/components/storefront/breadcrumbs";
 import { ProductGallery } from "@/components/storefront/product-gallery";
-import { VariantSelector } from "@/components/storefront/variant-selector";
+import { ProductPurchasePanel } from "@/components/storefront/product-purchase-panel";
 import { SpecSheet } from "@/components/storefront/spec-sheet";
 import { CompatibilityWarnings } from "@/components/storefront/compatibility-warnings";
 import { WishlistButton } from "@/components/storefront/wishlist-button";
@@ -151,9 +151,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
           {description ? <p className="text-muted-foreground">{description}</p> : null}
 
-          {publicProduct.variants.length > 0 ? (
-            <VariantSelector variants={publicProduct.variants} />
-          ) : null}
+          <ProductPurchasePanel
+            productId={publicProduct.id}
+            variants={publicProduct.variants}
+            inStock={publicProduct.inStock}
+          />
 
           <CompatibilityWarnings
             attributes={compatibility}
