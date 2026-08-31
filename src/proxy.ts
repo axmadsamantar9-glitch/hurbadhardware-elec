@@ -21,6 +21,41 @@ const CORRELATION_HEADER = "x-request-id";
 // audit_logs.correlation_id column.
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const isDev = process.env.NODE_ENV === "development";
+
+/**
+ * Content-Security-Policy, generated per-request with a fresh nonce.
+ *
+ * This must live in middleware, not next.config.ts: Next.js's App Router
+ * injects its own inline <script> tags on every page (the RSC streaming/
+ * hydration bootstrap), and it automatically reads a nonce out of the
+ * Content-Security-Policy response header text (looking for `'nonce-...'`
+ * in the string) to apply to those scripts. A static header from
+ * next.config.ts can't carry a fresh value per request, so without this,
+ * script-src 'self' blocks Next's own required scripts outright -- breaking
+ * hydration entirely (React error #412, a blank page) on every single page,
+ * independent of anything this project built. `style-src 'unsafe-inline'`
+ * is unrelated and unchanged -- Tailwind's inline style attributes need it
+ * and CSS injection carries a different risk profile than script execution.
+ */
+function buildCsp(nonce: string): string {
+  return `
+    default-src 'self';
+    script-src 'self' 'nonce-${nonce}'${isDev ? " 'unsafe-eval'" : ""};
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: blob: https://imagedelivery.net;
+    font-src 'self';
+    connect-src 'self';
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    frame-ancestors 'none';
+    ${isDev ? "" : "upgrade-insecure-requests;"}
+  `
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 // Create the next-intl middleware
 const intlMiddleware = createMiddleware({
   locales,
@@ -91,13 +126,20 @@ export async function proxy(request: NextRequest) {
   const inbound = request.headers.get(CORRELATION_HEADER);
   const correlationId = inbound && UUID_PATTERN.test(inbound) ? inbound : randomUUID();
 
+  // Base64-encoded random value, per Next.js's own documented CSP-nonce
+  // pattern -- a fresh nonce every request, never reused, never derived from
+  // anything client-controlled.
+  const nonce = Buffer.from(randomUUID()).toString("base64");
+
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(CORRELATION_HEADER, correlationId);
+  requestHeaders.set("x-nonce", nonce);
 
   const response = NextResponse.next({
     request: { headers: requestHeaders },
   });
   response.headers.set(CORRELATION_HEADER, correlationId);
+  response.headers.set("Content-Security-Policy", buildCsp(nonce));
 
   return response;
 }

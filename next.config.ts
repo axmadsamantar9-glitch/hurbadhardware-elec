@@ -1,36 +1,19 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
-const isDev = process.env.NODE_ENV === "development";
-
-// Static CSP (no nonces): keeps pages statically optimizable/ISR-eligible,
-// matching §4.1's "server-rendered/streamed where SEO/performance benefit"
-// approach. Nothing dynamic or third-party-scripted exists yet — revisit with
-// a nonce-based policy only if a future feature needs inline/third-party
-// scripts a static allowlist can't express safely.
-// `upgrade-insecure-requests` is dev-only-omitted: over plain http://localhost
-// it would force the browser to upgrade every asset request to https, which
-// doesn't exist locally, and break dev entirely.
-const cspHeader = `
-  default-src 'self';
-  script-src 'self'${isDev ? " 'unsafe-eval'" : ""};
-  style-src 'self' 'unsafe-inline';
-  img-src 'self' data: blob: https://imagedelivery.net;
-  font-src 'self';
-  connect-src 'self';
-  object-src 'none';
-  base-uri 'self';
-  form-action 'self';
-  frame-ancestors 'none';
-  ${isDev ? "" : "upgrade-insecure-requests;"}
-`
-  .replace(/\s{2,}/g, " ")
-  .trim();
+// Content-Security-Policy is NOT set here. Next.js's App Router injects its
+// own inline <script> tags on every page (the RSC streaming/hydration
+// bootstrap) -- a static script-src with no nonce blocks those scripts
+// outright, which breaks hydration entirely (React error #412, blank page).
+// This isn't specific to any feature this project built; it's required by
+// Next.js's own runtime. The fix is a per-request nonce, which can only be
+// generated in middleware (src/proxy.ts), not in this static config -- see
+// the CSP construction there. Every other security header below has no such
+// requirement and stays static here.
 
 // Applied to every response (PRD §9.1). HSTS is inert over plain http, so it's
 // safe to always send — browsers only honor it on https origins.
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: cspHeader },
   {
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
