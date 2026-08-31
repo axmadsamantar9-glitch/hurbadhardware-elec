@@ -860,3 +860,34 @@ When a ticket adds new i18n message keys, run a flatten-and-diff parity check be
 **Status:** ✅ VERIFIED
 **Date:** 2026-08-30
 **All 6 Production-Readiness Gates:** GREEN (Dogfood accepted as known pre-existing limitation, not a blocker)
+
+## HUR-190/HUB-37: Shopping Cart and Coupon (2026-08-31)
+
+### All Gates Passed — Item Verified; two safety-critical claims independently re-traced, not just trusted
+
+**Verification Date:** 2026-08-31
+**Item:** HUR-190/HUB-37 — Shopping Cart and Coupon: guest cart (Zustand/localStorage), authenticated cart (DB-backed, session-scoped), cart merge on login, coupon validation (read-only, no redemption). No schema change (`Cart`/`CartItem`/`Coupon` pre-existing).
+
+**Gate Results:** Build ✓ (all cart/coupon routes present in the route table), Lint ✓ (0 errors, 6 pre-existing unrelated warnings), Typecheck ✓, Tests 732/732 (up from the 632 pre-HUR-190 baseline, +100 exactly matching the commerce-engine builder's claim), coverage 90.87%/83.96%/92.26%/91.89% (all ≥ 80/70/80/80), Dogfood — same pre-existing repo-wide gap as every prior storefront ticket (no `dogfood` npm script anywhere in `package.json`), correctly treated as a known limitation not a blocker, Security ✓ (independently re-traced, see below).
+
+**Independent re-verification of the two most safety-critical claims (Iron Rule #1 + no-silent-redemption), not just trusted from the orchestrator/security-reviewer report:**
+
+1. **Client price never trusted.** Read `priceCartLines()` (`src/lib/api/cart-pricing.ts`) — `unitPriceUsd` is computed exclusively from a fresh `db.product.findMany({ include: { variants: true } })` read (`variant.priceUsd` / `product.basePriceUsd`), never from caller input. Both `GET /api/cart` and `POST /api/cart/price` route through this single shared function. Confirmed none of `AddItemSchema`/`UpdateQuantitySchema`/`PriceRequestSchema` (all in `src/app/api/cart/route.ts` / `src/app/api/cart/price/route.ts`) even declare a price field — there's no field to accidentally read. This is the same "the type doesn't have the dangerous field" pattern as HUB-36's id-cap-before-query design; worth recognizing as a recurring defensive idiom in this codebase.
+2. **Coupon validation is genuinely read-only.** Traced `validateCouponForSubtotal()` (`src/lib/api/coupons.ts`) — exactly one DB call (`db.coupon.findUnique`, a read), then delegates to `evaluateCoupon()` (`src/lib/storefront/coupon.ts`). Grepped `coupon.ts` for `db.`/`update`/`write`/`.coupon.` — zero matches, confirming it's a pure function with no DB access at all. Full call chain from `POST /api/coupons/validate` has exactly one DB touch, and it's a read.
+
+**Scope integrity:** Grepped the full HUR-190 diff (`cart.ts`, `cart-pricing.ts`, `coupons.ts`, cart/coupon routes) for `tax|shipping|reserve|redeem|checkout` — zero matches, confirming those are correctly deferred to HUB-38 and not silently half-built. `git diff --stat` against wishlist/comparison/search-filter-sort files (`account/wishlist`, `products/compare`, `query-state.ts`) — empty, confirming zero cross-contamination from other in-flight work. `prisma/schema.prisma` diff empty both in the working tree and against HEAD — zero migrations, confirming the pre-existing `Cart`/`CartItem`/`Coupon` models needed no schema changes.
+
+**Concurrency claim spot-check:** Grepped `cart.ts` for `pg_advisory_xact_lock` — confirmed present in `findOrCreateCart()`, `addCartItem()`, and the merge-on-login path, each scoped via `hashtext(userId)` or `hashtext(cart.id)` inside a `db.$transaction()`, matching the security-reviewer's described pattern.
+
+### Rule Going Forward
+
+When a ticket's diff spans multiple new API routes that share a common core function (e.g. `priceCartLines()` used by both an authenticated and a public endpoint), verify the Iron-Rule-relevant invariant (price/stock/tax never client-trusted) at the _shared function_ level rather than per-route — tracing it once at the shared function and then confirming both call sites route through it exclusively is more reliable than checking each route's request schema independently, since a schema-only check can't rule out the function itself trusting an input that a _future_ caller might supply.
+
+---
+
+## Summary
+
+**Item:** HUR-190/HUB-37 — Shopping Cart and Coupon
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-31
+**All 6 Production-Readiness Gates:** GREEN (Dogfood accepted as known pre-existing repo-wide limitation, not a blocker)
