@@ -25,8 +25,26 @@ jobs:
       - name: Lint
         run: npx eslint src/
 
+      # TEMPORARY DIAGNOSTIC (HUR-191 deploy investigation) - the Test step
+      # has failed on every CI run in this repo's history in ~1s (a startup
+      # crash, not a real test failure), but the raw job logs aren't
+      # accessible without admin rights to the repo. This surfaces the
+      # actual startup error as GitHub annotations instead, which are
+      # readable at a lower permission level. Revert once the real error is
+      # captured - this is not the fix itself.
       - name: Test
-        run: npm run test
+        run: |
+          set +e
+          npm run test > test-output.log 2>&1
+          EXIT_CODE=$?
+          echo "node: $(node -v)"
+          echo "npm: $(npm -v)"
+          if [ "$EXIT_CODE" -ne 0 ]; then
+            tail -n 80 test-output.log | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+          fi
+          exit $EXIT_CODE
 
       - name: Build
         run: npx next build
