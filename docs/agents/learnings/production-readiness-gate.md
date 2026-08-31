@@ -891,3 +891,43 @@ When a ticket's diff spans multiple new API routes that share a common core func
 **Status:** ✅ VERIFIED
 **Date:** 2026-08-31
 **All 6 Production-Readiness Gates:** GREEN (Dogfood accepted as known pre-existing repo-wide limitation, not a blocker)
+
+## HUR-191/HUB-38: Checkout — Independent Re-Verification of a Money-Adjacent Refactor (2026-08-31)
+
+### All Six Gates Passed — Item Verified (elevated rigor: real order-creation logic + refactor of a previously-verified module)
+
+**Verification Date:** 2026-08-31
+**Item:** HUR-191 (HUB-38) — Checkout: address entry, live stock/tax/total computation, atomic order creation (`status: PLACED`, `paymentStatus: PENDING`). Tax deliberately hardcoded to $0 (explicit escalated business-scoping decision, not a defect). Payment gateway, WhatsApp checkout, order management/tracking all correctly out of scope.
+
+**Gate Results:** Build ✓ (all routes present, including `/[locale]/checkout` and `/api/checkout`), Lint ✓ (0 errors, 6 pre-existing unrelated warnings), Typecheck ✓, Tests 774/774 (up from the 732 pre-HUR-191 baseline, +42 exactly matching the expected delta), coverage 90.87%/83.44%/91.7%/91.97% (all ≥ 80/70/80/80), Dogfood — same pre-existing repo-wide gap as every prior ticket (no `dogfood` npm script anywhere, no checkout-specific dogfood script), correctly treated as a known limitation not a blocker, Security ✓ (independently re-verified from source, not from any prior report — see below).
+
+**Independent re-verification of the single most critical property (per explicit dispatch instruction — do not just trust the report chain):**
+
+1. **Read `placeOrder()` (`src/lib/api/checkout.ts`) end to end.** Confirmed there is truly zero code path where a client-submitted price/subtotal/tax/total reaches an `Order`/`OrderItem` write: `PlaceOrderInput` is structurally `{ addressId, couponCode? }` — no price-shaped field exists to even accidentally read. `subtotalUsd`/`taxUsd`/`totalUsd`/`discountUsd` are all derived from fresh in-transaction DB reads (`variant.priceUsd`/`product.basePriceUsd`, `calculateTax()`, `evaluateCoupon()`) and written to `tx.order.create()`. Also confirmed at the route layer (`src/app/api/checkout/route.ts`): `PlaceOrderSchema` (Zod) is `{ addressId: z.string().min(1), couponCode: z.string().min(1).optional() }` — no money field accepted, and `userId` comes exclusively from `session.user.id` via `auth()`, never the body.
+2. **`status`/`paymentStatus` defaults.** `tx.order.create()` does not set `status` or `paymentStatus` explicitly — confirmed via `prisma/schema.prisma` that `Order.status` defaults to `PLACED` and `Order.paymentStatus` defaults to `PENDING`, and the live concurrency test (below) independently asserts both values on the created row.
+3. **Independently re-ran `src/lib/api/checkout.live.test.ts` in isolation, twice**, not just citing qa-test's report of having done so: `npx vitest run src/lib/api/checkout.live.test.ts` — passed both times (5346ms then 5483ms real test duration, confirming genuine multi-second live-DB latency, not a mocked/instant result). Confirmed the assertions: exactly one of two concurrent `placeOrder()` calls for the same last-unit product succeeds, the other returns `insufficient_stock`, final `stockQuantity === 0`, exactly one `Order` row created with `status: "PLACED"` / `paymentStatus: "PENDING"`, winning cart cleared, losing cart untouched.
+4. **Refactor regression check.** Diffed `src/lib/inventory.ts` — the guarded conditional-UPDATE SQL (`stock_quantity = stock_quantity + $delta WHERE ... AND stock_quantity + $delta >= 0`) was moved verbatim into the new `applyStockDelta()` export, with `adjustStock()` now a thin wrapper calling it inside its own `db.$transaction` plus the paired `InventoryLog` write — no SQL text changed. Independently ran `src/lib/inventory.test.ts` in isolation: 19/19 pass (the original 16 HUB-29 tests plus 3 new tests targeting `applyStockDelta()` directly), confirming zero regression.
+5. **Checkout calls `applyStockDelta(tx, ...)` directly (not `adjustStock()`)**, sharing checkout's own outer transaction/advisory lock rather than opening a nested `$transaction` — confirmed by reading the call site (`checkout.ts` lines 152-161), avoiding the Prisma nested-transaction anti-pattern the architect's design called for.
+6. **Coupon redemption race safety.** `redeemCoupon()` (`src/lib/storefront/coupon.ts`) is a guarded UPDATE checking `is_active`/`max_uses`/`expires_at` atomically in one WHERE clause, called inside checkout's transaction; 0-rows-affected throws `CouponRedemptionRaceError`, caught in `placeOrder()`'s top-level catch and mapped to `coupon_no_longer_valid` (409) — not an unhandled 500.
+
+**Scope integrity (all independently confirmed, not assumed from the ticket description):**
+
+- Zero `Payment` row creation anywhere in the diff (`grep -rn "payment.create\|Payment.create"` — no matches).
+- Zero WhatsApp/gateway integration code — the checkout page's "payment" step is UI-only (a `t("checkout.paymentNote")` placeholder string with Back/Continue buttons, no gateway calls); `checkout.ts`'s docstring explicitly lists payment-gateway integration, Payment row creation, WhatsApp checkout, and order management/tracking as deliberately NOT built here (HUB-39/HUB-40 own them later).
+- `prisma/schema.prisma` diff is empty both in the working tree (`git diff --stat`) and against HEAD `575def4d9abbff8b60d9ad520bd49912729d539f` (`git diff --stat 575def4...HEAD -- prisma/schema.prisma`) — zero schema changes, consistent with using only pre-existing `Order`/`OrderItem`/`Address`/`InventoryLog` models.
+- `calculateTax()` (`src/lib/storefront/tax.ts`) is a hardcoded, unconditional `return 0` with an explicit docstring citing PRD §0.6/§2/§53.5/§54 and a warning against ever guessing a nonzero rate here — confirmed this is a genuine scoping decision, not a shortcut.
+- No secrets/TODO/console.log/debugger in the diff (grepped all new/modified checkout-related files).
+
+### Rule Going Forward
+
+For the highest-stakes ticket in a session (real money/order-creation logic, refactor of a previously-verified module), do not shortcut the independent-reverification instruction even when the full report chain (product-planning → architect → builder → security-reviewer → qa-test) is unanimously green — re-read the money-critical function from source yourself and re-run the live-DB concurrency test yourself, twice, to confirm genuine (non-mocked, non-flaky) real-latency execution before trusting a prior agent's narrative of having done the same. A refactor that extracts a shared helper (`applyStockDelta()`) out of a previously-verified function (`adjustStock()`) is exactly the kind of change where a dropped guard clause could regress silently — diff the extracted SQL text byte-for-byte rather than trusting the docstring, and independently re-run the original module's full test file in isolation to confirm zero regression count-for-count (16 original + N new, not just "still green").
+
+---
+
+## Summary
+
+**Item:** HUR-191/HUB-38 — Checkout (address entry, live stock/tax/total computation, atomic order creation)
+**Status:** ✅ VERIFIED
+**Date:** 2026-08-31
+**All 6 Production-Readiness Gates:** GREEN (Dogfood accepted as known pre-existing repo-wide limitation, not a blocker)
+**Note:** Per explicit user instruction, FEATURES.md is NOT being edited by this gate pass for this item — verdict recorded here and in the final report only.

@@ -15,6 +15,7 @@
  *   - admin UI, PO-linked receiving
  */
 
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { InventoryLog } from "@/types/database";
 
@@ -53,17 +54,44 @@ export interface AdjustStockParams {
 }
 
 /**
+ * Applies a signed stock-quantity delta via the guarded conditional SQL
+ * UPDATE (`stock_quantity = stock_quantity + $delta WHERE ... AND
+ * stock_quantity + $delta >= 0`), evaluated entirely inside Postgres — there
+ * is no read-then-write gap in application code for a second concurrent
+ * transaction to land in. Returns the affected-row-count (0 means the guard
+ * failed — would go negative, or the row doesn't exist — or 1 on success);
+ * it does NOT throw on 0, does NOT write an `InventoryLog` row, and does NOT
+ * open its own transaction — the caller supplies `tx` and is responsible for
+ * both (see `adjustStock()` below for the canonical wrapper, and
+ * `src/lib/api/checkout.ts` for a second caller that shares checkout's outer
+ * transaction/advisory lock rather than nesting a new one, a Prisma
+ * anti-pattern).
+ */
+export async function applyStockDelta(
+  tx: Prisma.TransactionClient,
+  params: { productId: string; variantId?: string | null; delta: number }
+): Promise<number> {
+  const { productId, variantId, delta } = params;
+
+  return variantId
+    ? tx.$executeRaw`UPDATE product_variants
+        SET stock_quantity = stock_quantity + ${delta}
+        WHERE id = ${variantId} AND stock_quantity + ${delta} >= 0`
+    : tx.$executeRaw`UPDATE products
+        SET stock_quantity = stock_quantity + ${delta}
+        WHERE id = ${productId} AND stock_quantity + ${delta} >= 0`;
+}
+
+/**
  * Atomically adjusts stock and records the change.
  *
- * Concurrency safety: the stock update is a single conditional SQL UPDATE
- * (`stock_quantity = stock_quantity + $delta WHERE ... AND stock_quantity +
- * $delta >= 0`), evaluated entirely inside Postgres — there is no
- * read-then-write gap in application code for a second concurrent
- * transaction to land in. If the WHERE clause's guard fails (would go
- * negative, or the row doesn't exist), zero rows are affected and this
- * throws instead of writing an InventoryLog row. Wrapped in
- * `db.$transaction` so the stock update and the InventoryLog insert commit
- * or roll back together.
+ * Thin wrapper around `applyStockDelta()`: opens its own `db.$transaction`,
+ * runs the guarded UPDATE via `applyStockDelta()`, and — only on success —
+ * writes the paired `InventoryLog` row, so the stock update and the log
+ * insert commit or roll back together. On a 0-row-affected guard failure,
+ * distinguishes "not found" from "would go negative" (a read purely for
+ * error-message quality; it does not gate the write decision, which already
+ * ran atomically inside `applyStockDelta()`).
  */
 export async function adjustStock(params: AdjustStockParams): Promise<InventoryLog> {
   const { productId, variantId, delta, reason, referenceType, referenceId, createdBy } = params;
@@ -76,18 +104,9 @@ export async function adjustStock(params: AdjustStockParams): Promise<InventoryL
   }
 
   return db.$transaction(async (tx) => {
-    const affected = variantId
-      ? await tx.$executeRaw`UPDATE product_variants
-          SET stock_quantity = stock_quantity + ${delta}
-          WHERE id = ${variantId} AND stock_quantity + ${delta} >= 0`
-      : await tx.$executeRaw`UPDATE products
-          SET stock_quantity = stock_quantity + ${delta}
-          WHERE id = ${productId} AND stock_quantity + ${delta} >= 0`;
+    const affected = await applyStockDelta(tx, { productId, variantId, delta });
 
     if (affected === 0) {
-      // Distinguish "not found" from "would go negative" for a clearer error
-      // — this read is purely for error-message quality, it does not gate
-      // the write decision above (that guard already ran atomically).
       const exists = variantId
         ? await tx.productVariant.findUnique({ where: { id: variantId }, select: { id: true } })
         : await tx.product.findUnique({ where: { id: productId }, select: { id: true } });

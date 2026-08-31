@@ -111,3 +111,68 @@ request body, so there's no field to accidentally start trusting later.
 Route tests assert this by sending an extra `priceUsd`/`unitPriceUsd` field
 in the body and checking the DB call/response never reflects it (see
 `src/app/api/cart/route.test.ts`, `src/lib/api/cart-pricing.test.ts`).
+
+## Checkout (HUR-191): one transaction, guarded-UPDATE stock + coupon race checks, tax stays $0 until a business decision lands
+
+**Symptom:** N/A (proactive, HUR-191, Iron Rules #1 and #3 — the highest-
+stakes write path yet, real order + stock + money creation).
+
+**Cause:** N/A — documenting the shape that worked so future checkout-
+adjacent work (HUB-40 payments, HUB-39 order management) doesn't
+accidentally reintroduce a race or a client-trusted price/tax figure.
+
+**Rule going forward:**
+
+- `placeOrder()` (`src/lib/api/checkout.ts`) does everything — advisory
+  lock on the cart id, fresh `tx`-scoped re-read of cart lines, fresh
+  re-price from `tx.product`/`tx.productVariant`, stock re-validation,
+  guarded stock decrement, coupon re-validate+redeem, address ownership
+  check, Order/OrderItem/InventoryLog creation, cart clear — inside **one**
+  `db.$transaction`. Never call a pre-transaction "priced cart" helper
+  (`getCartLinesPriced()`) as the source of truth inside checkout; it's
+  advisory-only for the review UI.
+- Stock decrements go through `applyStockDelta(tx, {...})`
+  (`src/lib/inventory.ts`), extracted from `adjustStock()` so checkout can
+  share the outer `tx` instead of nesting a second `db.$transaction`
+  (Prisma anti-pattern — nested transactions silently don't compose the way
+  you'd expect). `adjustStock()` itself becomes a thin wrapper: open `tx`,
+  call `applyStockDelta`, write `InventoryLog`. Any future caller that needs
+  to fold a stock adjustment into a larger existing transaction should
+  import `applyStockDelta` directly, never `adjustStock()` (which opens its
+  own transaction) and never hand-roll the guarded UPDATE again.
+- Coupon redemption is a second guarded UPDATE
+  (`redeemCoupon(tx, couponId)` in `src/lib/storefront/coupon.ts`),
+  re-checking `is_active`/`max_uses`/`expires_at` in the SQL `WHERE` clause
+  itself — not just a prior `evaluateCoupon()` read — so a race between two
+  concurrent checkouts against the last remaining use of a capped coupon
+  can never both succeed. Throws `CouponRedemptionRaceError` (distinct type,
+  not a generic Error) on 0 rows affected. `evaluateCoupon()` stays pure —
+  redemption is a separate function, not a mutation added to it.
+- Deterministic stock-decrement ordering (`variantId ?? productId`
+  ascending) before the per-line guarded UPDATEs avoids a lock-ordering
+  deadlock when two concurrent checkouts touch overlapping products in
+  different orders.
+- `calculateTax()` (`src/lib/storefront/tax.ts`) is a **pure, deliberately
+  inert** extension point — always returns `0`. Tax rate/treatment is an
+  unconfirmed PRD §0.6 business decision; do not let a future ticket
+  "helpfully" hardcode a guessed rate here without that decision landing
+  first and the ticket being explicitly re-scoped.
+- Proved the concurrency invariant against the real DB, not just mocks:
+  `src/lib/api/checkout.live.test.ts` runs two different users' `placeOrder()`
+  calls concurrently against a shared product with `stockQuantity: 1` and
+  asserts exactly one succeeds, one gets `insufficient_stock`, and final
+  stock is exactly 0 — mirrors the `src/lib/inventory.live.test.ts` (HUB-29)
+  precedent one layer up the stack. Skips itself when `DATABASE_URL` isn't
+  set, so it never breaks a sandboxed `npm test` run.
+- **Bash-tool heredoc gotcha:** writing a large (~250+ line) TypeScript file
+  containing `` tx.$executeRaw`...${x}...` `` template literals via a Bash
+  `cat > file << 'EOF'` heredoc intermittently failed with a shell quote-
+  parsing error ("unexpected EOF while looking for matching `''`") even
+  though the delimiter was quoted (which should disable all further shell
+  parsing of the body). Root cause not fully isolated (reproduced with the
+  full file, not with smaller excerpts). Workaround that reliably works:
+  write a one-line placeholder via a trivial `printf`/`cat` command, `Read`
+  it once, then use the `Edit` tool (which never goes through a shell) to
+  replace the placeholder with the full content. Prefer this workaround
+  proactively for any large file containing template literals/backticks
+  rather than debugging the heredoc further.

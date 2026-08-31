@@ -17,6 +17,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   adjustStock,
+  applyStockDelta,
   receiveStock,
   adjustStockManual,
   writeOffStock,
@@ -25,6 +26,7 @@ import {
   InsufficientStockError,
   DEFAULT_LOW_STOCK_THRESHOLD,
 } from "./inventory";
+import type { Prisma } from "@prisma/client";
 
 // --- Unit tests: mock db.$transaction --------------------------------------
 
@@ -126,6 +128,39 @@ describe("adjustStock (unit, mocked db)", () => {
     await expect(
       adjustStock({ productId: "missing", delta: -1, reason: "write_off" })
     ).rejects.toThrow(/not found/);
+  });
+});
+
+describe("applyStockDelta (unit, does not open its own transaction)", () => {
+  function makeTx(affected: number) {
+    return {
+      $executeRaw: vi.fn().mockResolvedValue(affected),
+    } as unknown as Prisma.TransactionClient;
+  }
+
+  it("targets Product.stockQuantity when no variantId is given", async () => {
+    const tx = makeTx(1);
+    const affected = await applyStockDelta(tx, { productId: "p1", delta: -2 });
+    expect(affected).toBe(1);
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it("targets ProductVariant.stockQuantity when variantId is given", async () => {
+    const tx = makeTx(1);
+    const affected = await applyStockDelta(tx, { productId: "p1", variantId: "v1", delta: -2 });
+    expect(affected).toBe(1);
+  });
+
+  it("returns 0 (does not throw) when the guard fails, and never writes InventoryLog", async () => {
+    const tx = makeTx(0) as unknown as Prisma.TransactionClient & {
+      inventoryLog: { create: ReturnType<typeof vi.fn> };
+    };
+    (tx as unknown as { inventoryLog: { create: ReturnType<typeof vi.fn> } }).inventoryLog = {
+      create: vi.fn(),
+    };
+    const affected = await applyStockDelta(tx, { productId: "p1", delta: -100 });
+    expect(affected).toBe(0);
+    expect(tx.inventoryLog.create).not.toHaveBeenCalled();
   });
 });
 
