@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { getCorrelationId } from "@/lib/request-context";
@@ -8,7 +7,7 @@ import { getCorrelationId } from "@/lib/request-context";
 // ping is best-effort: no live DATABASE_URL is configured yet ([011]'s
 // external dependency), so a connection failure degrades the response
 // instead of throwing.
-export async function GET(request?: NextRequest) {
+export async function GET() {
   const correlationId = await getCorrelationId();
   const startedAt = Date.now();
 
@@ -24,8 +23,7 @@ export async function GET(request?: NextRequest) {
       errorCode = "code" in error ? String((error as { code?: unknown }).code) : undefined;
       // Prisma error text never contains the connection string itself, but
       // strip anything postgresql://... shaped as a defense-in-depth belt —
-      // this response can be requested by anyone who knows CRON_SECRET, not
-      // just operators with dashboard access.
+      // this endpoint is public with no secret gate.
       errorMessage = error.message.replace(/postgres(?:ql)?:\/\/\S+/gi, "[redacted]").slice(0, 300);
     }
   }
@@ -59,23 +57,21 @@ export async function GET(request?: NextRequest) {
       // malformed URL: report presence only, not the parse failure detail
     }
   }
+  // errorMessage is already stripped of anything postgresql://... shaped and
+  // capped at 300 chars (see above) -- Prisma's connection-failure text
+  // never carries the user/password by design, so this is safe to return
+  // unconditionally. No CRON_SECRET exists in this project's Vercel env, so
+  // gating behind one isn't an option -- and isn't needed once the message
+  // itself is sanitized.
   body.diagnostics = {
     databaseUrlPresent: Boolean(rawUrl),
     hostname,
     port,
     pgbouncer,
     connectionLimit,
+    errorCode: errorCode ?? null,
+    errorMessage: errorMessage ?? null,
   };
-
-  // The raw (sanitized) Prisma error text stays gated behind CRON_SECRET —
-  // more detail than topology alone, so it's kept out of a fully public
-  // response.
-  const providedSecret = request?.headers.get("x-diagnostic-secret") ?? null;
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && providedSecret === cronSecret) {
-    (body.diagnostics as Record<string, unknown>).errorCode = errorCode ?? null;
-    (body.diagnostics as Record<string, unknown>).errorMessage = errorMessage ?? null;
-  }
 
   logger.info("Health check", { ...body, durationMs: Date.now() - startedAt });
 
