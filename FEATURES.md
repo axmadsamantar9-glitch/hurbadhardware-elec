@@ -222,9 +222,14 @@ _(Last reconciled 2026-09-05 against actual `git log` — this section had drift
 
 ## NEXT LESSON
 
-**Production is currently down — infrastructure, not a feature, blocks everything below.** `/en` returns 500 in production because Prisma cannot authenticate to Supabase (`Authentication failed... credentials for postgres are not valid`); root cause and required Vercel-side action are tracked outside this ledger (see session history / status report). New feature dispatch should not start until that's resolved and verified live.
+**Production database connectivity is resolved** (2026-09-05 — Vercel `DATABASE_URL` corrected to the Supabase Transaction Pooler string; `/en`/`/so` return 200, `/api/health` reports `database: ok`). **Two narrower blockers remain before HUB-39 should start:**
 
-Once unblocked, the next unblocked planned item in sequence is:
+1. **Auth (`AUTH_SECRET`)** — `/api/auth/session` returns 500 in production; sign-in cannot complete, which blocks checkout (`checkout.signInRequired` with no guest-checkout path). Requires a Vercel Production environment variable the repository cannot supply — see `docs/agents/run-state.md` OPEN RISKS item 6 for exact steps.
+2. **Category/product images** — all 404 in production; `public/images/` was never populated with real assets (seed data references files that don't exist). See `docs/agents/run-state.md` OPEN RISKS item 8. Not a code bug; needs a content/CDN decision, deliberately left unfixed.
+
+The sitewide client-translation bug (raw keys like `cart.title`/`auth.signin` rendering instead of text) found during this verification pass is fixed in code (`d4e5e18`) — see OPEN RISKS item 7 for status.
+
+Once auth is unblocked and re-verified live, the next unblocked planned item in sequence is:
 
 **HUB-39: Order Management (Module 05, Storefront & Cart, Checkout, Orders, Shipping & Payments)**
 
