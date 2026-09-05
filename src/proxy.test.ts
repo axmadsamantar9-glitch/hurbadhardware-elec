@@ -90,6 +90,12 @@ describe("proxy middleware configuration", () => {
 });
 
 describe("real proxy behavior — Accept-Language locale detection (AC3)", () => {
+  // These two tests dynamically import @/proxy, which pulls in next-intl
+  // middleware + next-auth's SSR module graph -- a genuinely heavy first
+  // import. In isolation this finishes in ~1s, but under full-suite parallel
+  // execution (many workers cold-starting the same heavy graph at once) it
+  // can exceed vitest's 5s default. A longer per-test timeout reflects that
+  // real cost; it doesn't relax what's being asserted.
   it("redirects an unprefixed public route to /so when Accept-Language: so", async () => {
     const { proxy } = await import("@/proxy");
 
@@ -102,7 +108,7 @@ describe("real proxy behavior — Accept-Language locale detection (AC3)", () =>
     expect(response.status).toBeGreaterThanOrEqual(300);
     expect(response.status).toBeLessThan(400);
     expect(response.headers.get("location")).toMatch(/\/so(\/|$)/);
-  });
+  }, 15000);
 
   it("redirects an unprefixed public route to /en when Accept-Language: en", async () => {
     const { proxy } = await import("@/proxy");
@@ -116,5 +122,5 @@ describe("real proxy behavior — Accept-Language locale detection (AC3)", () =>
     expect(response.status).toBeGreaterThanOrEqual(300);
     expect(response.status).toBeLessThan(400);
     expect(response.headers.get("location")).toMatch(/\/en(\/|$)/);
-  });
+  }, 15000);
 });
