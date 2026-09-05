@@ -15,6 +15,7 @@ export const RATE_LIMIT_THRESHOLDS = {
   CHECKOUT: parseInt(process.env.RATE_LIMIT_CHECKOUT || "10", 10),
   WEBHOOK: parseInt(process.env.RATE_LIMIT_WEBHOOK || "120", 10),
   PUBLIC: parseInt(process.env.RATE_LIMIT_PUBLIC || "30", 10),
+  TRACK: parseInt(process.env.RATE_LIMIT_TRACK || "5", 10),
 };
 
 // Window is always 60 seconds (1 minute)
@@ -25,7 +26,7 @@ export const RATE_LIMIT_WINDOW_SECONDS = 60;
  * Category is determined by the calling route based on endpoint type and auth status.
  */
 export function getRateLimitConfig(
-  category: "login" | "api" | "checkout" | "webhook" | "public"
+  category: "login" | "api" | "checkout" | "webhook" | "public" | "track"
 ): RateLimitConfig {
   const thresholdKey = category.toUpperCase() as keyof typeof RATE_LIMIT_THRESHOLDS;
   return {

@@ -635,13 +635,18 @@ model Order {
   isWhatsappOrder   Boolean        @default(false) @map("is_whatsapp_order")
   notes             String?
   createdAt         DateTime       @default(now()) @map("created_at")
+  /// Carrier tracking number, set by admin operations once a shipment is
+  /// created (HUB-46, out of scope for this issue). Nullable until then;
+  /// only ever displayed on the order-detail/tracking pages when present.
+  trackingNumber String? @map("tracking_number")
 
-  user             User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
-  shippingAddress  Address?          @relation(fields: [shippingAddressId], references: [id], onDelete: SetNull)
-  coupon           Coupon?           @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  user             User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  shippingAddress  Address?              @relation(fields: [shippingAddressId], references: [id], onDelete: SetNull)
+  coupon           Coupon?               @relation(fields: [couponId], references: [id], onDelete: SetNull)
   items            OrderItem[]
   payments         Payment[]
   whatsappSessions WhatsappSession[]
+  statusHistory    OrderStatusHistory[]
 
   @@index([userId])
   @@index([status])
@@ -669,6 +674,35 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
   @@map("order_items")
+}
+
+/// Append-only history of an order's `status` transitions (HUB-39, U14).
+/// One row is written per transition — including the initial row created at
+/// checkout time (see src/lib/api/checkout.ts's placeOrder(), which inserts
+/// the PLACED row inside the same transaction as the Order itself) — so the
+/// order-tracking timeline (Placed -> Processing -> Shipped -> Delivered, or
+/// -> Cancelled) can render exact per-stage timestamps.
+///
+/// Append-only by application convention only, mirroring how Order/OrderItem
+/// are treated as immutable once created: there is deliberately no
+/// update/delete path in application code. Unlike AuditLog, this table has
+/// no DB-level rejecting trigger enforcing that for MVP — the audit trail of
+/// *who* changed an order's status already lives in AuditLog's
+/// `order.status_change` action (with actorId), so this table only needs to
+/// answer "what was the status, and when" for the customer-facing timeline;
+/// adding a trigger here would duplicate enforcement without adding new
+/// information. Revisit if this table's write path is ever exposed beyond
+/// the single trusted admin status-change flow (HUB-46).
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String      @map("order_id")
+  status    OrderStatus
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@map("order_status_history")
 }
 
 model Payment {

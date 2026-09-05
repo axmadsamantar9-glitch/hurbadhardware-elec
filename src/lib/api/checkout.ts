@@ -216,6 +216,14 @@ export async function placeOrder(
         },
       });
 
+      // Seed the order-status timeline (HUB-39) with its initial PLACED
+      // entry, inside this same transaction -- never a second transaction --
+      // so the history row and the order it describes are always created or
+      // rolled back together.
+      await tx.orderStatusHistory.create({
+        data: { orderId: order.id, status: order.status },
+      });
+
       for (const line of resolvedLines) {
         await tx.orderItem.create({
           data: {

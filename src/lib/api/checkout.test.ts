@@ -13,6 +13,7 @@ const mockCouponFindUnique = vi.fn();
 const mockOrderCreate = vi.fn();
 const mockOrderItemCreate = vi.fn();
 const mockInventoryLogCreate = vi.fn();
+const mockOrderStatusHistoryCreate = vi.fn();
 
 function makeTx() {
   return {
@@ -24,6 +25,7 @@ function makeTx() {
     order: { create: mockOrderCreate },
     orderItem: { create: mockOrderItemCreate },
     inventoryLog: { create: mockInventoryLogCreate },
+    orderStatusHistory: { create: mockOrderStatusHistoryCreate },
   };
 }
 
@@ -68,9 +70,10 @@ beforeEach(() => {
   mockExecuteRaw.mockResolvedValue(1);
   vi.mocked(applyStockDelta).mockResolvedValue(1);
   mockAddressFindUnique.mockResolvedValue(ADDRESS);
-  mockOrderCreate.mockResolvedValue({ id: "order1" });
+  mockOrderCreate.mockResolvedValue({ id: "order1", status: "PLACED" });
   mockOrderItemCreate.mockResolvedValue({ id: "oi1" });
   mockInventoryLogCreate.mockResolvedValue({ id: "log1" });
+  mockOrderStatusHistoryCreate.mockResolvedValue({ id: "hist1" });
   mockCartItemDeleteMany.mockResolvedValue({ count: 1 });
 });
 
@@ -256,6 +259,12 @@ describe("placeOrder", () => {
     });
 
     expect(mockCartItemDeleteMany).toHaveBeenCalledWith({ where: { cartId: "cart1" } });
+
+    // HUB-39: the initial status-history row is written inside the same tx,
+    // immediately after order creation -- never a second transaction.
+    expect(mockOrderStatusHistoryCreate).toHaveBeenCalledWith({
+      data: { orderId: "order1", status: "PLACED" },
+    });
   });
 
   it("never trusts a client-supplied price -- unitPriceUsd always comes from the tx-fresh product read", async () => {

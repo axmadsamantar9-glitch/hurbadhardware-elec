@@ -100,7 +100,13 @@ export default function AccountPage() {
               </div>
             )}
 
-            <div className="border-t border-zinc-200 pt-6">
+            <div className="border-t border-zinc-200 pt-6 flex flex-wrap gap-3">
+              <Link
+                href={`/${locale}/account/orders`}
+                className="inline-flex items-center rounded-lg border border-zinc-300 px-4 py-2 font-medium text-zinc-900 hover:bg-zinc-50 transition-colors"
+              >
+                {t("account.orders")}
+              </Link>
               <Link
                 href={`/${locale}/account/wishlist`}
                 className="inline-flex items-center rounded-lg border border-zinc-300 px-4 py-2 font-medium text-zinc-900 hover:bg-zinc-50 transition-colors"

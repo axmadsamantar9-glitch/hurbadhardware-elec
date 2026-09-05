@@ -931,3 +931,44 @@ For the highest-stakes ticket in a session (real money/order-creation logic, ref
 **Date:** 2026-08-31
 **All 6 Production-Readiness Gates:** GREEN (Dogfood accepted as known pre-existing repo-wide limitation, not a blocker)
 **Note:** Per explicit user instruction, FEATURES.md is NOT being edited by this gate pass for this item — verdict recorded here and in the final report only.
+
+## HUB-39: Order Management (2026-09-05)
+
+### All Six Gates Passed — dogfood partial-failure independently diagnosed as local-`next dev`-only DB flake, not a regression
+
+**Verification Date:** 2026-09-05
+**Item:** HUB-39 — Order Management (order listing/detail, status timeline, public tracking)
+
+**Gate Results:**
+
+1. **Typecheck** ✅ — `npx tsc --noEmit` exits 0, no output.
+2. **Lint** ✅ — `npx eslint src/` — 0 errors, 3 pre-existing warnings in rate-limit test/middleware files (unrelated, expected).
+3. **Build** ✅ — `npx next build` succeeds; route table confirmed to include all 4 new HUB-39 routes: `/[locale]/account/orders`, `/[locale]/account/orders/[id]`, `/[locale]/track`, `/api/track`.
+4. **Tests** ✅ — 799/799 passing, 72/72 files, in a clean single run (no flake observed in the specific concurrency test qa-test flagged as a risk, `checkout.live.test.ts`).
+5. **Coverage** ✅ — Stmts 91.25%, Branch 83.73%, Funcs 92.27%, Lines 92.36% — all ≥80%/70% thresholds, project-wide.
+6. **Security** ✅ — Independently spot-checked the new surface myself (no dedicated security-reviewer.md entry existed for this ticket to cross-reference, unusually — the dispatch prompt's "0 critical/high, 1 Medium, 1 Low" claim could not be corroborated against a written security-reviewer artifact). Read `src/app/api/track/route.ts` and `src/lib/api/orders.ts` directly: dual IP+suffix rate limit on the public tracking endpoint, uniform generic 404 for every non-match reason (no email-existence oracle), ownership scoping done in the Prisma `where` clause (not a post-fetch check) for `getOrderDetailForUser`, reduced response shape on `trackOrder` (no shipping address/payment method/per-item price). Grepped the relevant diff for secret patterns — none found. Confirmed this independently rather than taking the dispatch prompt's security claim at face value.
+
+**Migration safety** ✅ — `prisma/migrations/20260905145325_add_order_status_history_and_tracking_number/migration.sql` read in full: additive-only (new `order_status_history` table, nullable `orders.tracking_number` column, one NOT-EXISTS-guarded idempotent backfill INSERT). No DROP/destructive ALTER statements.
+
+### Dogfood — flaky-looking failure investigated to root cause before accepting
+
+`npx tsx scripts/dogfood-hub39.ts` scored 3/5: both unauthenticated-redirect checks and the 400-validation check passed; the 2 DB-touching checks (public track page render, generic-404 lookup) failed with HTTP 500. Rather than either blocking the gate or waving it through on the builder's say-so, reproduced and diagnosed independently:
+
+- Started the dev server manually, hit `/api/health` → `503 {database: "unreachable"}`.
+- Curled `/en/track` directly and read the raw SSR error payload: `PrismaClientInitializationError` thrown from `getCategories()` inside `[locale]/layout.tsx` (the shared nav header every page renders) — i.e. this is NOT specific to any HUB-39 code path; it would 500 every DB-backed page under `next dev` right now.
+- In parallel, `npx prisma db pull --print` (a separate short-lived CLI process using the identical `DATABASE_URL`) succeeded at reaching the same host at effectively the same wall-clock moment, and a raw `net.createConnection` TCP probe to the pooler host:port also succeeded — ruling out "the DB/network is actually down."
+- Killed and fully restarted the dev server (fresh `PrismaClient` singleton) — the failure reproduced identically on the fresh process, ruling out simple staleness from a long-lived hot-reloaded connection.
+- This exactly matches (and independently confirms) what the qa-test/commerce-engine agent had already reported and diagnosed for this same ticket: a Turbopack/`next dev`-process-specific outbound-connection quirk against the Supabase Session Pooler, distinct from plain `node`/CLI/vitest processes using the identical connection string. Root cause not fully isolated (candidates: IPv6/IPv4 preference difference, a process-scoped network rule, or pooler connection-slot contention specific to how Next's dev server holds its singleton open across Turbopack recompiles) — but conclusively NOT a HUB-39 code defect, since it reproduces on `/api/health` itself with zero HUB-39 code in the call path.
+
+**Rule going forward:** When a dogfood script's HTTP assertions fail with 500/503 against a DB-backed route, before concluding the ticket's code is broken: (1) check `/api/health` for a `database: unreachable` signal, (2) if present, hit a route that is provably unrelated to the ticket's own new code (e.g. the shared layout's own DB call, or `/api/health` itself) to see if it 500s identically — if yes, the flake is environmental/process-layer, not a regression, (3) cross-check DB reachability from a second, independent process (CLI `prisma db pull`, or a live vitest test) using the identical connection string at essentially the same moment — a reachability difference between two processes on the identical string isolates the problem to the process/network layer. Do not silently wave this through OR silently block the gate on it — reproduce it yourself and write down exactly what you tried, so the next agent doesn't have to re-derive the diagnosis from scratch. This `next dev`-vs-everything-else DB reachability gap has now been independently reproduced by two different agents (commerce-engine/qa-test, then production-readiness-gate) on this same ticket; if it recurs a third time on a future ticket, it likely warrants a dedicated investigation (performance-deployment or infra) rather than being re-diagnosed from scratch each time.
+
+**Missing security-reviewer artifact:** unlike every other verified item in this file, HUB-39 had no dedicated `docs/agents/learnings/security-reviewer.md` entry to independently cross-reference for its "0 critical/high, 1 Medium, 1 Low" claim — grepped the file and found nothing HUB-39-specific. Did not block on this (own independent code read satisfied the gate), but flagging: future security-reviewer passes should always leave a durable learnings entry, even a short one, specifically so production-readiness-gate can corroborate rather than take dispatch-prompt claims on faith (per this file's own long-standing "independently re-verify" rule from the HUR-172 entry above).
+
+---
+
+## Summary
+
+**Item:** HUB-39 — Order Management
+**Status:** ✅ VERIFIED
+**Date:** 2026-09-05
+**All 8 Production-Readiness Gates:** GREEN (including migration-safety and secrets-scan hard gates)
