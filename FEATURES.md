@@ -1,7 +1,7 @@
 # HurbadHardware Curriculum Ledger — Complete (HUB-1 through HUB-85)
 
 **Organized by instructor Module → Lesson → HUB**  
-**Status:** Curriculum Complete | 85 Total Lessons | 7 Completed | 78 Planned  
+**Status:** Curriculum Complete | 85 Total Lessons | 36 Completed | 49 Planned  
 **Authority:** Instructor's 12-module curriculum + PRD v4 requirements + existing verified work
 
 ---
