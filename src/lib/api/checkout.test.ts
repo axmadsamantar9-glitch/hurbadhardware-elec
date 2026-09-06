@@ -3,6 +3,8 @@ import { placeOrder } from "./checkout";
 import { db } from "@/lib/db";
 import { applyStockDelta } from "@/lib/inventory";
 import { redeemCoupon, CouponRedemptionRaceError } from "@/lib/storefront/coupon";
+import { convert } from "@/lib/currency/convert";
+import { StaleRateError } from "@/lib/payments/errors";
 
 const mockExecuteRaw = vi.fn();
 const mockCartItemFindMany = vi.fn();
@@ -14,6 +16,7 @@ const mockOrderCreate = vi.fn();
 const mockOrderItemCreate = vi.fn();
 const mockInventoryLogCreate = vi.fn();
 const mockOrderStatusHistoryCreate = vi.fn();
+const mockPaymentCreate = vi.fn();
 
 function makeTx() {
   return {
@@ -26,7 +29,34 @@ function makeTx() {
     orderItem: { create: mockOrderItemCreate },
     inventoryLog: { create: mockInventoryLogCreate },
     orderStatusHistory: { create: mockOrderStatusHistoryCreate },
+    payment: { create: mockPaymentCreate },
   };
+}
+
+// convert() is mocked wholesale here (never hits the DB) -- its own
+// Decimal/ROUND_CEIL/stale-rate behavior is covered directly by
+// src/lib/currency/convert.test.ts. Default behavior below mirrors the real
+// identity-passthrough (USD) and a simple flat-rate stand-in (KES) so
+// checkout tests can assert on the numbers they already expect.
+vi.mock("@/lib/currency/convert", () => ({
+  convert: vi.fn(),
+}));
+
+function defaultConvertImpl(amountUsd: { toNumber: () => number }, target: "USD" | "KES") {
+  if (target === "USD") {
+    return Promise.resolve({
+      chargeAmount: { toNumber: () => amountUsd.toNumber() },
+      chargeCurrency: "USD" as const,
+      fxRate: null,
+      fxRateAt: null,
+    });
+  }
+  return Promise.resolve({
+    chargeAmount: { toNumber: () => Math.ceil(amountUsd.toNumber() * 130) },
+    chargeCurrency: "KES" as const,
+    fxRate: { toNumber: () => 130 },
+    fxRateAt: new Date("2026-01-01T00:00:00Z"),
+  });
 }
 
 vi.mock("@/lib/db", () => ({
@@ -63,7 +93,11 @@ const PRODUCT = {
   variants: [] as unknown[],
 };
 
-const ADDRESS = { id: "addr1", userId: "user-1" };
+// Somalia address: EVC_PLUS/EDAHAB/CARD allowed, all WaafiPay/eDahab (USD) --
+// none of these default tests route through Paystack/KES.
+const ADDRESS = { id: "addr1", userId: "user-1", country: "SO" };
+
+const BASE_INPUT = { addressId: "addr1", paymentMethod: "EVC_PLUS" as const };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -75,13 +109,15 @@ beforeEach(() => {
   mockInventoryLogCreate.mockResolvedValue({ id: "log1" });
   mockOrderStatusHistoryCreate.mockResolvedValue({ id: "hist1" });
   mockCartItemDeleteMany.mockResolvedValue({ count: 1 });
+  mockPaymentCreate.mockResolvedValue({ id: "pay1" });
+  vi.mocked(convert).mockImplementation(defaultConvertImpl as never);
 });
 
 describe("placeOrder", () => {
   it("returns cart_empty when the user has no cart at all", async () => {
     vi.mocked(db.cart.findFirst).mockResolvedValue(null);
 
-    const result = await placeOrder("user-1", { addressId: "addr1" });
+    const result = await placeOrder("user-1", BASE_INPUT);
 
     expect(result).toEqual({ ok: false, error: "cart_empty" });
   });
@@ -90,7 +126,7 @@ describe("placeOrder", () => {
     vi.mocked(db.cart.findFirst).mockResolvedValue({ id: "cart1" } as never);
     mockCartItemFindMany.mockResolvedValue([]);
 
-    const result = await placeOrder("user-1", { addressId: "addr1" });
+    const result = await placeOrder("user-1", BASE_INPUT);
 
     expect(result).toEqual({ ok: false, error: "cart_empty" });
   });
@@ -102,7 +138,7 @@ describe("placeOrder", () => {
     ]);
     mockProductFindMany.mockResolvedValue([]);
 
-    const result = await placeOrder("user-1", { addressId: "addr1" });
+    const result = await placeOrder("user-1", BASE_INPUT);
 
     expect(result).toEqual({ ok: false, error: "product_unavailable" });
   });
@@ -114,7 +150,7 @@ describe("placeOrder", () => {
     ]);
     mockProductFindMany.mockResolvedValue([{ ...PRODUCT, isActive: false }]);
 
-    const result = await placeOrder("user-1", { addressId: "addr1" });
+    const result = await placeOrder("user-1", BASE_INPUT);
 
     expect(result).toEqual({ ok: false, error: "product_unavailable" });
   });
@@ -126,7 +162,7 @@ describe("placeOrder", () => {
     ]);
     mockProductFindMany.mockResolvedValue([PRODUCT]);
 
-    const result = await placeOrder("user-1", { addressId: "addr1" });
+    const result = await placeOrder("user-1", BASE_INPUT);
 
     expect(result).toEqual({ ok: false, error: "product_unavailable" });
   });
@@ -138,7 +174,7 @@ describe("placeOrder", () => {
     ]);
     mockProductFindMany.mockResolvedValue([PRODUCT]);
 
-    const result = await placeOrder("user-1", { addressId: "addr1" });
+    const result = await placeOrder("user-1", BASE_INPUT);
 
     expect(result).toEqual({ ok: false, error: "insufficient_stock" });
     expect(applyStockDelta).not.toHaveBeenCalled();
@@ -152,7 +188,7 @@ describe("placeOrder", () => {
     mockProductFindMany.mockResolvedValue([PRODUCT]);
     vi.mocked(applyStockDelta).mockResolvedValue(0);
 
-    const result = await placeOrder("user-1", { addressId: "addr1" });
+    const result = await placeOrder("user-1", BASE_INPUT);
 
     expect(result).toEqual({ ok: false, error: "insufficient_stock" });
     expect(mockOrderCreate).not.toHaveBeenCalled();
@@ -169,7 +205,7 @@ describe("placeOrder", () => {
       { ...PRODUCT, id: "p2" },
     ]);
 
-    await placeOrder("user-1", { addressId: "addr1" });
+    await placeOrder("user-1", BASE_INPUT);
 
     const calls = vi.mocked(applyStockDelta).mock.calls;
     expect(calls[0][1]).toMatchObject({ productId: "p1" });
@@ -182,9 +218,9 @@ describe("placeOrder", () => {
       { id: "ci1", productId: "p1", variantId: null, quantity: 1 },
     ]);
     mockProductFindMany.mockResolvedValue([PRODUCT]);
-    mockAddressFindUnique.mockResolvedValue({ id: "addr1", userId: "other-user" });
+    mockAddressFindUnique.mockResolvedValue({ id: "addr1", userId: "other-user", country: "SO" });
 
-    const result = await placeOrder("user-1", { addressId: "addr1" });
+    const result = await placeOrder("user-1", BASE_INPUT);
 
     expect(result).toEqual({ ok: false, error: "address_not_found" });
     expect(mockOrderCreate).not.toHaveBeenCalled();
@@ -198,9 +234,60 @@ describe("placeOrder", () => {
     mockProductFindMany.mockResolvedValue([PRODUCT]);
     mockAddressFindUnique.mockResolvedValue(null);
 
-    const result = await placeOrder("user-1", { addressId: "addr1" });
+    const result = await placeOrder("user-1", BASE_INPUT);
 
     expect(result).toEqual({ ok: false, error: "address_not_found" });
+  });
+
+  it("rejects a payment method not allowed for the shipping country (Iron Rule #1)", async () => {
+    vi.mocked(db.cart.findFirst).mockResolvedValue({ id: "cart1" } as never);
+    mockCartItemFindMany.mockResolvedValue([
+      { id: "ci1", productId: "p1", variantId: null, quantity: 1 },
+    ]);
+    mockProductFindMany.mockResolvedValue([PRODUCT]);
+    // Ethiopia only allows CARD, not MPESA.
+    mockAddressFindUnique.mockResolvedValue({ id: "addr1", userId: "user-1", country: "ET" });
+
+    const result = await placeOrder("user-1", { addressId: "addr1", paymentMethod: "MPESA" });
+
+    expect(result).toEqual({ ok: false, error: "payment_method_not_allowed" });
+    expect(mockOrderCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns fx_rate_stale (and creates nothing) when convert() throws StaleRateError", async () => {
+    vi.mocked(db.cart.findFirst).mockResolvedValue({ id: "cart1" } as never);
+    mockCartItemFindMany.mockResolvedValue([
+      { id: "ci1", productId: "p1", variantId: null, quantity: 1 },
+    ]);
+    mockProductFindMany.mockResolvedValue([PRODUCT]);
+    mockAddressFindUnique.mockResolvedValue({ id: "addr1", userId: "user-1", country: "KE" });
+    vi.mocked(convert).mockRejectedValueOnce(new StaleRateError("too old"));
+
+    const result = await placeOrder("user-1", { addressId: "addr1", paymentMethod: "MPESA" });
+
+    expect(result).toEqual({ ok: false, error: "fx_rate_stale" });
+    expect(mockOrderCreate).not.toHaveBeenCalled();
+  });
+
+  it("resolves MPESA -> PAYSTACK -> KES via convert(), for a Kenyan address", async () => {
+    vi.mocked(db.cart.findFirst).mockResolvedValue({ id: "cart1" } as never);
+    mockCartItemFindMany.mockResolvedValue([
+      { id: "ci1", productId: "p1", variantId: null, quantity: 2 },
+    ]);
+    mockProductFindMany.mockResolvedValue([PRODUCT]);
+    mockAddressFindUnique.mockResolvedValue({ id: "addr1", userId: "user-1", country: "KE" });
+
+    const result = await placeOrder("user-1", { addressId: "addr1", paymentMethod: "MPESA" });
+
+    expect(result.ok).toBe(true);
+    expect(convert).toHaveBeenCalledWith(expect.anything(), "KES");
+    expect(mockPaymentCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        gateway: "PAYSTACK",
+        method: "MPESA",
+        chargeCurrency: "KES",
+      }),
+    });
   });
 
   it("creates order+items+inventory logs and clears the cart on success (no coupon)", async () => {
@@ -210,7 +297,7 @@ describe("placeOrder", () => {
     ]);
     mockProductFindMany.mockResolvedValue([PRODUCT]);
 
-    const result = await placeOrder("user-1", { addressId: "addr1" });
+    const result = await placeOrder("user-1", BASE_INPUT);
 
     expect(result).toEqual({
       ok: true,
@@ -219,6 +306,9 @@ describe("placeOrder", () => {
       discountUsd: 0,
       taxUsd: 0,
       totalUsd: 20,
+      chargeCurrency: "USD",
+      chargeAmount: 20,
+      fxRate: null,
     });
 
     expect(mockOrderCreate).toHaveBeenCalledWith({
@@ -229,11 +319,23 @@ describe("placeOrder", () => {
         taxUsd: 0,
         totalUsd: 20,
         chargeCurrency: "USD",
-        chargeAmount: 20,
         fxRate: null,
         fxRateAt: null,
         shippingAddressId: "addr1",
         couponId: null,
+        paymentMethod: "EVC_PLUS",
+      }),
+    });
+
+    // HUB-40: the Payment row is created in the same transaction, using the
+    // order's own id as gatewayReference, and resolves EVC_PLUS -> WAAFIPAY.
+    expect(mockPaymentCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        orderId: "order1",
+        gateway: "WAAFIPAY",
+        method: "EVC_PLUS",
+        gatewayReference: "order1",
+        chargeCurrency: "USD",
       }),
     });
 
@@ -274,7 +376,7 @@ describe("placeOrder", () => {
     ]);
     mockProductFindMany.mockResolvedValue([{ ...PRODUCT, basePriceUsd: decimal(10) }]);
 
-    await placeOrder("user-1", { addressId: "addr1" });
+    await placeOrder("user-1", BASE_INPUT);
 
     expect(mockOrderItemCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ unitPriceUsd: 10 }),
@@ -298,7 +400,7 @@ describe("placeOrder", () => {
       isActive: true,
     });
 
-    const result = await placeOrder("user-1", { addressId: "addr1", couponCode: "SAVE5" });
+    const result = await placeOrder("user-1", { ...BASE_INPUT, couponCode: "SAVE5" });
 
     expect(result).toEqual({
       ok: true,
@@ -307,6 +409,9 @@ describe("placeOrder", () => {
       discountUsd: 5,
       taxUsd: 0,
       totalUsd: 15,
+      chargeCurrency: "USD",
+      chargeAmount: 15,
+      fxRate: null,
     });
     expect(redeemCoupon).toHaveBeenCalledWith(expect.anything(), "coupon1");
   });
@@ -319,7 +424,7 @@ describe("placeOrder", () => {
     mockProductFindMany.mockResolvedValue([PRODUCT]);
     mockCouponFindUnique.mockResolvedValue(null);
 
-    const result = await placeOrder("user-1", { addressId: "addr1", couponCode: "MISSING" });
+    const result = await placeOrder("user-1", { ...BASE_INPUT, couponCode: "MISSING" });
 
     expect(result).toEqual({ ok: false, error: "coupon_invalid", couponReason: "not_found" });
     expect(redeemCoupon).not.toHaveBeenCalled();
@@ -344,7 +449,7 @@ describe("placeOrder", () => {
     });
     vi.mocked(redeemCoupon).mockRejectedValue(new CouponRedemptionRaceError("coupon1"));
 
-    const result = await placeOrder("user-1", { addressId: "addr1", couponCode: "SAVE5" });
+    const result = await placeOrder("user-1", { ...BASE_INPUT, couponCode: "SAVE5" });
 
     expect(result).toEqual({ ok: false, error: "coupon_no_longer_valid" });
     expect(mockOrderCreate).not.toHaveBeenCalled();

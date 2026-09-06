@@ -41,7 +41,7 @@ describe("/api/checkout (HUR-191)", () => {
   it("returns 401 when unauthenticated", async () => {
     mockedAuth.mockResolvedValue(null);
 
-    const res = await POST(makeRequest({ addressId: "addr1" }));
+    const res = await POST(makeRequest({ addressId: "addr1", paymentMethod: "EVC_PLUS" }));
 
     expect(res.status).toBe(401);
     expect(placeOrder).not.toHaveBeenCalled();
@@ -65,11 +65,15 @@ describe("/api/checkout (HUR-191)", () => {
       discountUsd: 0,
       taxUsd: 0,
       totalUsd: 20,
+      chargeCurrency: "USD",
+      chargeAmount: 20,
+      fxRate: null,
     });
 
     const res = await POST(
       makeRequest({
         addressId: "addr1",
+        paymentMethod: "EVC_PLUS",
         userId: "attacker-supplied-id",
         totalUsd: 0.01,
       })
@@ -77,17 +81,25 @@ describe("/api/checkout (HUR-191)", () => {
     const json = await res.json();
 
     expect(res.status).toBe(201);
-    expect(json).toMatchObject({ ok: true, orderId: "order1", totalUsd: 20 });
+    expect(json).toMatchObject({
+      ok: true,
+      orderId: "order1",
+      totalUsd: 20,
+      chargeCurrency: "USD",
+    });
     // Only the session-derived id and the Zod-validated field set (addressId,
-    // couponCode) are ever passed through.
-    expect(placeOrder).toHaveBeenCalledWith("user-1", { addressId: "addr1" });
+    // paymentMethod, couponCode) are ever passed through.
+    expect(placeOrder).toHaveBeenCalledWith("user-1", {
+      addressId: "addr1",
+      paymentMethod: "EVC_PLUS",
+    });
   });
 
   it("maps address_not_found to a 404", async () => {
     mockedAuth.mockResolvedValue(USER_SESSION as unknown as Session);
     vi.mocked(placeOrder).mockResolvedValue({ ok: false, error: "address_not_found" });
 
-    const res = await POST(makeRequest({ addressId: "not-mine" }));
+    const res = await POST(makeRequest({ addressId: "not-mine", paymentMethod: "EVC_PLUS" }));
 
     expect(res.status).toBe(404);
   });
@@ -96,7 +108,7 @@ describe("/api/checkout (HUR-191)", () => {
     mockedAuth.mockResolvedValue(USER_SESSION as unknown as Session);
     vi.mocked(placeOrder).mockResolvedValue({ ok: false, error: "insufficient_stock" });
 
-    const res = await POST(makeRequest({ addressId: "addr1" }));
+    const res = await POST(makeRequest({ addressId: "addr1", paymentMethod: "EVC_PLUS" }));
 
     expect(res.status).toBe(409);
   });
@@ -105,16 +117,36 @@ describe("/api/checkout (HUR-191)", () => {
     mockedAuth.mockResolvedValue(USER_SESSION as unknown as Session);
     vi.mocked(placeOrder).mockResolvedValue({ ok: false, error: "coupon_no_longer_valid" });
 
-    const res = await POST(makeRequest({ addressId: "addr1", couponCode: "SAVE5" }));
+    const res = await POST(
+      makeRequest({ addressId: "addr1", paymentMethod: "EVC_PLUS", couponCode: "SAVE5" })
+    );
 
     expect(res.status).toBe(409);
+  });
+
+  it("maps payment_method_not_allowed to a 400", async () => {
+    mockedAuth.mockResolvedValue(USER_SESSION as unknown as Session);
+    vi.mocked(placeOrder).mockResolvedValue({ ok: false, error: "payment_method_not_allowed" });
+
+    const res = await POST(makeRequest({ addressId: "addr1", paymentMethod: "MPESA" }));
+
+    expect(res.status).toBe(400);
+  });
+
+  it("maps fx_rate_stale to a 503", async () => {
+    mockedAuth.mockResolvedValue(USER_SESSION as unknown as Session);
+    vi.mocked(placeOrder).mockResolvedValue({ ok: false, error: "fx_rate_stale" });
+
+    const res = await POST(makeRequest({ addressId: "addr1", paymentMethod: "MPESA" }));
+
+    expect(res.status).toBe(503);
   });
 
   it("maps cart_empty to a 400", async () => {
     mockedAuth.mockResolvedValue(USER_SESSION as unknown as Session);
     vi.mocked(placeOrder).mockResolvedValue({ ok: false, error: "cart_empty" });
 
-    const res = await POST(makeRequest({ addressId: "addr1" }));
+    const res = await POST(makeRequest({ addressId: "addr1", paymentMethod: "EVC_PLUS" }));
 
     expect(res.status).toBe(400);
   });
@@ -129,13 +161,16 @@ describe("/api/checkout (HUR-191)", () => {
         discountUsd: 0,
         taxUsd: 0,
         totalUsd: 20,
+        chargeCurrency: "USD",
+        chargeAmount: 20,
+        fxRate: null,
       });
 
       const { RATE_LIMIT_THRESHOLDS } = await import("@/lib/config/rate-limits");
       for (let i = 0; i < RATE_LIMIT_THRESHOLDS.CHECKOUT; i++) {
-        await POST(makeRequest({ addressId: "addr1" }));
+        await POST(makeRequest({ addressId: "addr1", paymentMethod: "EVC_PLUS" }));
       }
-      const res = await POST(makeRequest({ addressId: "addr1" }));
+      const res = await POST(makeRequest({ addressId: "addr1", paymentMethod: "EVC_PLUS" }));
 
       expect(res.status).toBe(429);
     });

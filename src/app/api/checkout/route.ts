@@ -27,6 +27,7 @@ import { placeOrder, type CheckoutErrorCode } from "@/lib/api/checkout";
 const PlaceOrderSchema = z.object({
   addressId: z.string().min(1),
   couponCode: z.string().min(1).optional(),
+  paymentMethod: z.enum(["EVC_PLUS", "EDAHAB", "CARD", "MPESA"]),
 });
 
 const ERROR_STATUS: Record<CheckoutErrorCode, number> = {
@@ -36,6 +37,8 @@ const ERROR_STATUS: Record<CheckoutErrorCode, number> = {
   insufficient_stock: 409,
   coupon_invalid: 400,
   coupon_no_longer_valid: 409,
+  payment_method_not_allowed: 400,
+  fx_rate_stale: 503,
 };
 
 async function requireUser(): Promise<{ userId: string } | { errorResponse: NextResponse }> {
@@ -115,6 +118,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         discountUsd: result.discountUsd,
         taxUsd: result.taxUsd,
         totalUsd: result.totalUsd,
+        chargeCurrency: result.chargeCurrency,
+        chargeAmount: result.chargeAmount,
+        fxRate: result.fxRate,
       },
       { status: 201 }
     );

@@ -732,3 +732,63 @@ Total: 192 tests written, 243 total tests now passing
 **New finding, reported not silently patched:** while running this script, `next dev`'s own `PrismaClient` singleton (`src/lib/db.ts`) could NOT reach the Supabase pooler (`Can't reach database server at aws-1-eu-west-1.pooler.supabase.com:5432`, surfaced correctly as `/api/health` → 503 `database:"unreachable"`) at the exact same wall-clock time that a plain `npx vitest run` process, using the identical `DATABASE_URL` from the identical `.env` file, connected successfully and ran `orders.live.test.ts` to a clean 9/9 pass — reproduced 3 times (initial run, one full dev-server restart, one re-check after confirming raw TCP:5432 connectivity via `Test-NetConnection` succeeded). This rules out "the DB is actually down" and points at something specific to the `next dev` (Turbopack) process's outbound connection on this machine/network (candidate causes not yet isolated: IPv6-vs-IPv4 preference difference between plain `node` and the Next dev server process, a Windows-Defender/proxy rule scoped to the `next-server` binary rather than `node.exe`, or Supabase pooler connection-slot contention specific to how Next's dev server holds its singleton client open across Turbopack recompiles). Because it reproduces identically regardless of which route is hit (`/api/health` itself fails), this is **not a HUB-39 code bug** — it would block every DB-backed page/route under `next dev` right now, not just orders/tracking — so it was not "fixed" here (out of scope, and the `db.ts` singleton pattern itself is unchanged/correct per its own doc comment). Reported here so production-readiness-gate or performance-deployment can decide whether to chase it; `scripts/dogfood-hub39.ts` itself is correct and will pass cleanly once `next dev` can reach the DB (its own internal logic — redirect/status assertions — is not in question, only the current local DB reachability from that specific process).
 
 **Rule going forward:** when a dogfood script's HTTP assertions fail with 500/503, always cross-check DB reachability from a SECOND, independent process (e.g. `npx vitest run` against a live-DB test) before concluding the application code under test is broken — a reachability difference between two processes using the identical connection string, at the identical moment, isolates the problem to the process/network layer rather than the code, and prevents wasting the "iron rule" budget chasing a phantom code bug.
+
+---
+
+## HUB-40: Payment System — QA Audit (2026-09-06)
+
+### Text-table coverage reporter can silently omit real, covered files (cosmetic, verify before trusting)
+
+**Symptom:** `npm run test:coverage`'s text-table reporter omitted several `src/lib/payments/` files entirely (`admin.ts`, `cron-auth.ts`, `gateway.ts`, `methods.ts`, `settle.ts`) even though each has its own `.test.ts` that imports the real, unmocked module and passes.
+
+**Cause:** Confirmed this is a display bug in this vitest/v8-coverage version's text-table renderer, not a real gap — dumping `coverage/coverage-final.json` directly (`--coverage.reporter=json`) and computing per-file statement-hit counts by hand showed every "missing" file actually had full, non-zero coverage (`settle.ts` 100%, `admin.ts`/`cron-auth.ts`/`gateway.ts`/`methods.ts` all 100%).
+
+**Rule going forward:** Never conclude a file is untested just because it's absent from the text table when a corresponding `.test.ts` clearly imports it unmocked. Re-run with `--coverage.reporter=json` and inspect `coverage-final.json`'s `statementMap`/`s` counts directly before reporting a gap. Rows that ARE present with an explicit 0% ARE real (this session's genuine finds, below, were both correctly shown at 0% in the table).
+
+### Genuine coverage gaps found and closed: route wrapper and display-formatter left untested
+
+**Symptom:** Project-wide aggregate coverage was already >=80% on all four metrics, hiding two real 0%-covered new files: `src/app/api/admin/payments/route.ts` (the auth/rate-limit/error-envelope route wrapper around the already-100%-tested `listPaymentsForReview` data layer — its own doc comment cites `src/app/api/admin/uploads/presign/route.ts` as the precedent pattern, but unlike that route it shipped with zero `route.test.ts`) and `src/lib/currency/format.ts` (display-only currency formatter, zero tests).
+
+**Fixed:** Added `src/app/api/admin/payments/route.test.ts` (401 unauthenticated / 403 non-admin / 200 happy path / page-param forwarding / 500 generic-error-envelope that doesn't leak the raw error / 429 rate-limit) and `src/lib/currency/format.test.ts` (USD 2dp, KES 0dp, Decimal input, numeric-string input). Both now 100%.
+
+**Rule going forward:** When auditing a "coverage passed" claim, always cross-check the per-file breakdown for the SPECIFIC files in scope, not just the aggregate — a well-tested data layer makes it easy to wrongly assume its thin route wrapper is covered too.
+
+### Race-condition test rigor: a mocked unit test and a live-DB test prove different things
+
+**Task:** verify the "callback-vs-cron race" test in `settle.test.ts`/`reconcile.test.ts` genuinely simulates two competing writers, not two sequential calls dressed up as concurrent.
+
+**Finding:** The mocked test is legitimate for what it actually tests: it scripts `mockPaymentUpdateMany` to return `{count:1}` then `{count:0}` across two sequential `settlePayment` calls, then asserts the second call returns `false` AND `mockApplyStockDelta` was called exactly once (`toHaveBeenCalledTimes(1)` — a real count assertion, not "no error thrown"). This correctly proves the application-level branching ("0 rows affected by the guarded UPDATE means treat it as a no-op, skip all side effects") is correct — but it CANNOT prove Postgres's real `WHERE status = 'PENDING'` conditional UPDATE actually serializes two genuinely concurrent transactions without a race window. This repo already has a precedent for that second, distinct claim: `.live.test.ts` files (`src/lib/inventory.live.test.ts` HUB-29, `src/lib/api/checkout.live.test.ts` HUR-191) that fire real concurrent transactions via `Promise.all`/`Promise.allSettled` at a real throwaway DB row, self-skipping via `describe.skip` when `DATABASE_URL` is unset. No such file existed yet for `settlePayment`'s guarded update.
+
+**Fixed:** Added `src/lib/payments/settle.live.test.ts` following the same convention — throwaway Category/Product/User/Address/Order/Payment rows, cleaned up in `afterAll`. Fires two genuinely concurrent `db.$transaction(tx => settlePayment(tx, payment, {kind:"FAILED",...}))` calls via `Promise.all` against the SAME real Payment row, then asserts against real Postgres state (not mock call counts): exactly one call returns `true` and one `false`; `product.stockQuantity` increased by exactly `QUANTITY` (never `2*QUANTITY`); exactly one `InventoryLog` row exists (a real `findMany` count query); exactly one `OrderStatusHistory` CANCELLED row exists; and the terminal `Payment.status`/`Order.paymentStatus`/`Order.status` each end up set correctly, once. Passed on first run against the real dev Supabase DB.
+
+**Rule going forward:** for any "race condition" / "guarded update / dedup" claim, a mocked unit test only proves the application-level branching is correct GIVEN that the DB-level guard works — that is a genuinely different claim from "the DB-level guard actually serializes concurrent writers," which needs the `.live.test.ts` pattern. When auditing dedup/idempotency logic, check for a sibling `.live.test.ts` alongside the mocked test; if the underlying guarded-update primitive is new and none exists, write one rather than accepting the mocked test alone as sufficient.
+
+### Adversarial and Decimal-precision spot-checks: both confirmed genuinely rigorous, no gap
+
+`src/app/api/payments/callback/[gateway]/route.test.ts`'s "ALWAYS calls queryStatus and persists ITS result, even when the raw body claims a different status" test constructs a forged body claiming `state: "APPROVED"` while `queryStatus` is mocked to return `FAILED`/`declined`, then asserts `settlePayment` was called with the FAILED outcome — genuinely adversarial, not a body that happens to agree.
+
+`src/lib/currency/convert.test.ts` uses `19.99` (a classic IEEE-754 float-drift trap) plus `0.1`/`0.03` against a non-round rate (`129.37`, spread `1.5`), asserting an EXACT Decimal string (`"131.31055"`) and that `chargeAmount.toString()` matches `/^\d+$/` (never a float-drifted value like `"1301.0000000000002"`) — this would genuinely fail under native-float arithmetic. No gap found in either file.
+
+### Dogfood entrypoint: `scripts/dogfood-hub40.ts` created (auth/validation boundary, not a live-gateway flow)
+
+Following the `dogfood-hub39.ts` precedent (auth/validation-boundary dogfood, not a full live-payment E2E — genuinely impossible without gateway sandbox credentials; eDahab has none documented, WaafiPay base URL is unconfirmed, per `docs/agents/run-state.md` Active Decisions #6-7), added `scripts/dogfood-hub40.ts`: starts `next dev`, waits on `/api/health`, then verifies unauthenticated `POST /api/payments/initiate` and `GET /api/payments/status/<id>` both 401; `GET /api/cron/fx-rates` and `GET /api/cron/reconcile` both 401 with no `Authorization` header AND 401 with a wrong Bearer token (fail-closed per `src/lib/payments/cron-auth.ts`); `POST /api/payments/callback/<unknown-gateway>` 400s; and `POST /api/payments/callback/waafipay` / `.../paystack` both 401 with no signature headers (fail-closed per each adapter's own `validateCallback`, which requires the header REGARDLESS of whether the corresponding webhook secret env var is configured). Ran it against the real dev server — 9/9 checks passed, exit 0.
+
+### HUB-40 Coverage Metrics (Final)
+
+| Metric     | Value  | Target | Status  |
+| ---------- | ------ | ------ | ------- |
+| Statements | 91.57% | 80%    | ✅ PASS |
+| Branches   | 83.34% | 70%    | ✅ PASS |
+| Functions  | 92.55% | 80%    | ✅ PASS |
+| Lines      | 92.81% | 80%    | ✅ PASS |
+
+Per-file coverage for new/audited HUB-40 files (via `coverage-final.json`, not the truncated text table): `settle.ts` 100%, `reconcile.ts` 87.8%, `gateway.ts` 100%, `methods.ts` 100%, `admin.ts` (lib) 100%, `cron-auth.ts` 100%, `edahab.ts` 94.4%, `waafipay.ts` 97.6%, `paystack.ts` 97.4%, `errors.ts` 57.1% (small file; uncovered lines are unreachable defensive branches), `convert.ts` 100%, `format.ts` 100% (after fix), `rates.ts` 100%, `app/api/admin/payments/route.ts` 100% (after fix), `app/api/cron/fx-rates` 100%, `app/api/cron/reconcile` 100%, `app/api/payments/callback/[gateway]` 78.3%, `app/api/payments/initiate` 86.7%, `app/api/payments/status/[orderId]` 90.9%.
+
+### Test Files Created This Session
+
+1. `src/lib/payments/settle.live.test.ts` — real-DB concurrency test for the callback-vs-cron guarded-update race (1 test)
+2. `src/app/api/admin/payments/route.test.ts` — auth/rate-limit/error-envelope coverage for the admin payment review route (6 tests)
+3. `src/lib/currency/format.test.ts` — display formatting coverage (4 tests)
+4. `scripts/dogfood-hub40.ts` — auth/validation-boundary dogfood entrypoint (9 checks), same pattern as `scripts/dogfood-hub39.ts`
+
+Total: 924 -> 935 tests, all passing, 91 test files, no application code modified (no bugs found).

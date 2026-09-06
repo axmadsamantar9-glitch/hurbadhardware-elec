@@ -136,8 +136,8 @@ describeIfDb("placeOrder — live concurrency (real DB)", () => {
 
   it("allows exactly one of two concurrent checkouts to reserve the last unit", async () => {
     const [resultA, resultB] = await Promise.all([
-      placeOrder(userAId, { addressId: addressAId }),
-      placeOrder(userBId, { addressId: addressBId }),
+      placeOrder(userAId, { addressId: addressAId, paymentMethod: "EVC_PLUS" }),
+      placeOrder(userBId, { addressId: addressBId, paymentMethod: "EVC_PLUS" }),
     ]);
 
     const outcomes = [resultA, resultB];

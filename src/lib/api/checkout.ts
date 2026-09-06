@@ -13,19 +13,32 @@
  * Order+OrderItem+InventoryLog rows -- all inside one transaction, so a
  * failure at any step rolls back everything (stock decrements included).
  *
- * Deliberately NOT built here (HUB-40 owns this later):
- *   - payment gateway integration/confirmation, Payment row creation
- *   - FX conversion beyond the minimal USD-passthrough (chargeCurrency:
- *     "USD", fxRate: null, fxRateAt: null)
+ * HUB-40 (U12/U23) additions: re-derives the allowed payment methods for the
+ * shipping country (src/lib/payments/methods.ts) and rejects a
+ * client-submitted method that isn't one of them; resolves the method's
+ * gateway and, for KES-charging gateways, converts totalUsd via
+ * src/lib/currency/convert.ts (DB-only read, safe inside this transaction --
+ * a StaleRateError rolls back the whole transaction); creates the Payment
+ * row in the same transaction, right after Order/OrderItem/InventoryLog/
+ * OrderStatusHistory, using the order's own id as `gatewayReference`.
+ *
+ * Deliberately NOT built here:
+ *   - actual gateway HTTP calls (initiatePayment/queryStatus) -- see
+ *     src/app/api/payments/initiate/route.ts, which is called by the client
+ *     after a successful checkout response
  *   - WhatsApp/conversational checkout (R22)
- *   - order management/tracking post-creation (HUB-39)
  */
 
+import { Decimal } from "@prisma/client/runtime/library";
+import type { PaymentMethod } from "@prisma/client";
 import { db } from "@/lib/db";
 import { applyStockDelta } from "@/lib/inventory";
 import { evaluateCoupon, redeemCoupon, CouponRedemptionRaceError } from "@/lib/storefront/coupon";
 import { calculateTax } from "@/lib/storefront/tax";
 import { roundMoney } from "@/lib/storefront/cart";
+import { getAllowedPaymentMethods, getGatewayForMethod } from "@/lib/payments/methods";
+import { convert } from "@/lib/currency/convert";
+import { StaleRateError } from "@/lib/payments/errors";
 
 export type CheckoutErrorCode =
   | "cart_empty"
@@ -33,11 +46,14 @@ export type CheckoutErrorCode =
   | "product_unavailable"
   | "insufficient_stock"
   | "coupon_invalid"
-  | "coupon_no_longer_valid";
+  | "coupon_no_longer_valid"
+  | "payment_method_not_allowed"
+  | "fx_rate_stale";
 
 export interface PlaceOrderInput {
   addressId: string;
   couponCode?: string;
+  paymentMethod: PaymentMethod;
 }
 
 export type PlaceOrderResult =
@@ -48,6 +64,9 @@ export type PlaceOrderResult =
       discountUsd: number;
       taxUsd: number;
       totalUsd: number;
+      chargeCurrency: "USD" | "KES";
+      chargeAmount: number;
+      fxRate: number | null;
     }
   | { ok: false; error: CheckoutErrorCode; couponReason?: string };
 
@@ -165,6 +184,15 @@ export async function placeOrder(
         throw new CheckoutFlowError("address_not_found");
       }
 
+      // Iron Rule #1: never trust the client for a server-decidable fact --
+      // re-derive the allowed methods for this address's country and reject
+      // if the submitted method isn't one of them, exactly like the
+      // price/stock checks above.
+      const allowedMethods = getAllowedPaymentMethods(address.country);
+      if (!allowedMethods.includes(input.paymentMethod)) {
+        throw new CheckoutFlowError("payment_method_not_allowed");
+      }
+
       const subtotalUsd = roundMoney(
         resolvedLines.reduce((sum, l) => sum + l.unitPriceUsd * l.quantity, 0)
       );
@@ -200,6 +228,16 @@ export async function placeOrder(
       const taxUsd = calculateTax(subtotalUsd);
       const totalUsd = roundMoney(subtotalUsd - discountUsd + taxUsd);
 
+      // Resolve gateway/chargeCurrency from the single method->gateway map
+      // (src/lib/payments/methods.ts), then convert if the resolved gateway
+      // charges in KES. convert() only reads the newest persisted FxRate row
+      // (no network call), so it's safe to call inside this transaction; a
+      // StaleRateError here rolls back the whole transaction -- nothing
+      // partially created, no stock partially decremented.
+      const gateway = getGatewayForMethod(input.paymentMethod);
+      const targetCurrency = gateway === "PAYSTACK" ? "KES" : "USD";
+      const conversion = await convert(new Decimal(totalUsd), targetCurrency);
+
       const order = await tx.order.create({
         data: {
           userId,
@@ -207,12 +245,13 @@ export async function placeOrder(
           discountUsd,
           taxUsd,
           totalUsd,
-          chargeCurrency: "USD",
-          chargeAmount: totalUsd,
-          fxRate: null,
-          fxRateAt: null,
+          chargeCurrency: conversion.chargeCurrency,
+          chargeAmount: conversion.chargeAmount,
+          fxRate: conversion.fxRate,
+          fxRateAt: conversion.fxRateAt,
           shippingAddressId: address.id,
           couponId,
+          paymentMethod: input.paymentMethod,
         },
       });
 
@@ -252,12 +291,31 @@ export async function placeOrder(
 
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
+      // Create the Payment row in the same transaction, right after
+      // Order/OrderItem/InventoryLog/OrderStatusHistory. gatewayReference is
+      // the order's own id -- @@unique([gateway, gatewayReference]) then
+      // also enforces "at most one Payment per order" as a side effect.
+      await tx.payment.create({
+        data: {
+          orderId: order.id,
+          gateway,
+          method: input.paymentMethod,
+          gatewayReference: order.id,
+          amountUsd: totalUsd,
+          chargeAmount: conversion.chargeAmount,
+          chargeCurrency: conversion.chargeCurrency,
+        },
+      });
+
       return {
         id: order.id,
         subtotalUsd,
         discountUsd,
         taxUsd,
         totalUsd,
+        chargeCurrency: conversion.chargeCurrency,
+        chargeAmount: conversion.chargeAmount.toNumber(),
+        fxRate: conversion.fxRate ? conversion.fxRate.toNumber() : null,
       };
     });
 
@@ -268,6 +326,9 @@ export async function placeOrder(
       discountUsd: orderResult.discountUsd,
       taxUsd: orderResult.taxUsd,
       totalUsd: orderResult.totalUsd,
+      chargeCurrency: orderResult.chargeCurrency,
+      chargeAmount: orderResult.chargeAmount,
+      fxRate: orderResult.fxRate,
     };
   } catch (error: unknown) {
     if (error instanceof CheckoutFlowError) {
@@ -275,6 +336,9 @@ export async function placeOrder(
     }
     if (error instanceof CouponRedemptionRaceError) {
       return { ok: false, error: "coupon_no_longer_valid" };
+    }
+    if (error instanceof StaleRateError) {
+      return { ok: false, error: "fx_rate_stale" };
     }
     throw error;
   }
