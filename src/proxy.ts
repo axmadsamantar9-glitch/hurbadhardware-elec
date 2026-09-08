@@ -151,6 +151,11 @@ export const config = {
     // - /api (API routes don't need locale prefix, but they're matched for correlation ID)
     // - /_next/static and /_next/image (static assets)
     // - /favicon.ico (favicon)
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    // - any path with a file extension (public/ static assets -- /images/*.jpg,
+    //   /file.svg, etc.). Without this, next-intl's locale-prefix middleware
+    //   307-redirects a direct asset request like /images/products/foo.jpg to
+    //   /en/images/products/foo.jpg, which doesn't exist as a static file and
+    //   404s -- breaking every product/category image in production.
+    "/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)",
   ],
 };

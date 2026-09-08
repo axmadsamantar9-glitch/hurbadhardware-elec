@@ -18,19 +18,29 @@ import { NextRequest } from "next/server";
  */
 
 describe("proxy middleware configuration", () => {
-  it("middleware matcher excludes static assets", () => {
-    // Config in proxy.ts:
-    // matcher: ['/((?!_next/static|_next/image|favicon.ico).*)',]
-    const excludedPaths = ["_next/static", "_next/image", "favicon.ico"];
-    expect(excludedPaths).toHaveLength(3);
-  });
+  it("middleware matcher excludes static assets and any file with an extension", async () => {
+    // Real regression test for the /images/*.jpg -> /en/images/*.jpg 404 bug:
+    // next-intl's locale-prefix middleware previously ran on public/ static
+    // asset requests (no extension exclusion in the matcher), 307-redirecting
+    // /images/products/foo.jpg to /en/images/products/foo.jpg, which doesn't
+    // exist as a static file. Exercises the ACTUAL exported matcher pattern
+    // from proxy.ts, not a hand-copied string, so it can't silently drift.
+    const { config } = await import("@/proxy");
+    const [pattern] = config.matcher;
+    const matcher = new RegExp(`^${pattern}$`);
 
-  it("middleware matcher is a regex negative lookahead", () => {
-    // The pattern: /((?!_next/static|_next/image|favicon.ico).*)/
-    const matcherPattern = "/((?!_next/static|_next/image|favicon.ico).*)";
-    expect(matcherPattern).toContain("_next/static");
-    expect(matcherPattern).toContain("_next/image");
-    expect(matcherPattern).toContain("favicon.ico");
+    // Should NOT match (excluded from locale-prefix middleware):
+    expect(matcher.test("/images/categories/smartphones.jpg")).toBe(false);
+    expect(matcher.test("/images/products/foo-1.jpg")).toBe(false);
+    expect(matcher.test("/file.svg")).toBe(false);
+    expect(matcher.test("/favicon.ico")).toBe(false);
+    expect(matcher.test("/_next/static/chunk.js")).toBe(false);
+    expect(matcher.test("/_next/image")).toBe(false);
+
+    // Should still match (needs locale handling):
+    expect(matcher.test("/en")).toBe(true);
+    expect(matcher.test("/en/products/foo")).toBe(true);
+    expect(matcher.test("/api/health")).toBe(true);
   });
 
   it("validates UUID format correctly", () => {
