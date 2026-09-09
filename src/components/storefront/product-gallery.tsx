@@ -7,10 +7,10 @@
  * loader/config needed here.
  */
 
-import Image from "next/image";
 import { useState } from "react";
 import { localeField } from "@/lib/locale-field";
 import { sortProductImages } from "@/lib/storefront/images";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import type { ProductImage } from "@/types/database";
 
 interface ProductGalleryProps {
@@ -35,13 +35,14 @@ export function ProductGallery({ images, fallbackAlt, locale }: ProductGalleryPr
   return (
     <div className="flex flex-col gap-3">
       <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-muted">
-        <Image
+        <ImageWithFallback
           src={active.url}
           alt={activeAlt}
           fill
           priority
           sizes="(min-width: 1024px) 40vw, 100vw"
           className="object-cover"
+          fallback={<div className="h-full w-full bg-muted" aria-hidden="true" />}
         />
       </div>
       {ordered.length > 1 ? (
@@ -62,7 +63,14 @@ export function ProductGallery({ images, fallbackAlt, locale }: ProductGalleryPr
                   (isActive ? "border-primary" : "border-transparent")
                 }
               >
-                <Image src={image.url} alt="" fill sizes="64px" className="object-cover" />
+                <ImageWithFallback
+                  src={image.url}
+                  alt=""
+                  fill
+                  sizes="64px"
+                  className="object-cover"
+                  fallback={<div className="h-full w-full bg-muted" aria-hidden="true" />}
+                />
               </button>
             );
           })}

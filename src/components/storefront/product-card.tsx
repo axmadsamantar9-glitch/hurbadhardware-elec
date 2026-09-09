@@ -1,8 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 import { localeField } from "@/lib/locale-field";
 import { sortProductImages } from "@/lib/storefront/images";
 import { Card } from "@/components/ui/card";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { WishlistButton } from "@/components/storefront/wishlist-button";
 import { CompareButton } from "@/components/storefront/compare-button";
 import type { PublicProductListItem } from "@/lib/api/serialize-product";
@@ -43,12 +43,13 @@ export function ProductCard({ product, locale, labels, wishlist, compare }: Prod
       <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-md">
         <div className="relative aspect-square w-full bg-muted">
           {primaryImage ? (
-            <Image
+            <ImageWithFallback
               src={primaryImage.url}
               alt={alt}
               fill
               sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
               className="object-cover"
+              fallback={<div className="h-full w-full bg-muted" aria-hidden="true" />}
             />
           ) : null}
           {wishlist ? (
