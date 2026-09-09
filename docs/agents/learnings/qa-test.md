@@ -918,3 +918,116 @@ rigorous as-is). No application code modified — `shipping.ts`, `checkout.ts`,
 verification and reverted every time, confirmed via `git diff` matching the
 pre-existing uncommitted HUB-41 diff exactly. No bugs found in application
 code. Total: 938 -> 939 tests, all passing, 92 test files.
+
+---
+
+## HUB-42: Warranty Management -- Post-Security-Review QA Pass (2026-09-09)
+
+### "Precedence tests" can silently fail to cover the actual precedence case
+
+**Symptom:** `status.test.ts` had two tests titled "VOID takes precedence over
+an otherwise-ACTIVE warranty" and "VOID... regardless of anything else," which
+read as if they covered "warranty is both past-expiry AND voided -> VOID wins
+over EXPIRED." Neither fixture was actually past its expiry date (both used
+long warranty windows that hadn't lapsed by `now`), so the EXPIRED branch was
+never actually competing with VOID in those tests -- the precedence claim in
+the test name was unverified.
+
+**Cause:** It's easy to write a test whose _name_ asserts a precedence
+relationship while the _fixture_ doesn't actually put the two competing
+conditions in tension. A test with a short-enough `warrantyMonths` that IS
+genuinely expired, combined with `voidedAt` set, is required to prove VOID
+truly wins over EXPIRED rather than just wins over ACTIVE (a much weaker
+claim, since VOID and ACTIVE aren't reachable from the same branch order
+question).
+
+**Rule going forward:** When a test name claims "X takes precedence over Y,"
+verify the fixture actually satisfies Y's condition in isolation (i.e., if Y's
+guard were checked first, the test would assert something different). Don't
+accept "precedence" test names at face value during rigor audits -- trace the
+fixture's values through the actual guard clauses.
+
+### Security-fix-driven test gaps are a distinct category from missing-coverage gaps
+
+**Symptom:** A security reviewer found a whitespace-only `overrideReason`
+(e.g. `" "`) could satisfy `.min(1)` and get persisted as a meaningless audit
+justification; the app code was fixed (`.trim()` added before `.min(1)`) by
+another agent, but no test was added alongside the fix, so the regression had
+zero test protection despite being a real, previously-exploitable bug.
+
+**Cause:** When application code is patched directly (outside the normal
+red/green test-first loop), the fix can ship without ever having a failing
+test demonstrating the bug it closes. This is a different failure mode than
+"feature X has low coverage" -- it's "a specific CVE-shaped behavior has NO
+regression test," which is higher-priority to close.
+
+**Rule going forward:** After any post-hoc security/bug fix landed outside the
+normal test loop, always (a) write the regression test, (b) temporarily
+revert the fix to confirm the new test goes red, (c) restore the fix and
+confirm green. Don't just add the test and trust it — a test that passes
+against both the fixed and buggy code proves nothing.
+
+### Confirming a "known limitation" is accurately reflected, not silently fixed
+
+**Symptom:** `Warranty.coverageTermsEn/So`, `exclusionsEn/So`, `coverageNotesEn/So`
+are schema fields with zero writers anywhere in the codebase (confirmed via
+grep) — AC9's "snapshot at registration" property is only trivially true
+because nothing ever sets these fields to non-null. This is an approved scope
+gap (no admin UI to configure per-product coverage terms text exists yet), not
+a bug.
+
+**Cause/Verification:** Checked that (a) `warranties.test.ts` fixtures set all
+six fields to `null` (not fabricated as populated), and (b) the customer
+account warranty detail page (`account/warranties/[id]/page.tsx`) only renders
+these sections conditionally (`{coverageTerms && (...)}`), so a `null` value
+correctly renders nothing rather than crashing or showing empty UI. No test
+anywhere claims these fields are populated.
+
+**Rule going forward:** When a security/scope finding describes a field as
+"never populated, and that's expected because X is out of scope," verify by
+reading (1) the actual test fixtures for that field (do they assert `null`,
+not a fabricated value?) and (2) any UI/logic that reads the field (does it
+handle `null` safely?). Do NOT invent the missing feature to "fix" the
+finding — that's scope creep the security reviewer explicitly flagged as
+out-of-bounds.
+
+### Dogfood pattern extends cleanly to new route trees, but stays auth-boundary-only
+
+**What worked:** `scripts/dogfood-hub42.ts` follows the exact
+`dogfood-hub39.ts`/`dogfood-hub40.ts` shape (start dev server, wait for
+`/api/health`, run a list of unauthenticated-request checks, exit
+0/non-zero). None of this repo's dogfood scripts establish a real
+login+CSRF+session-cookie flow, so authenticated business-logic checks
+("invalid transition -> 400", "missing overrideReason -> 400" against a real
+admin session) are out of scope for dogfood under the existing convention —
+those are proven with strictly more precision by the mocked-auth route tests
+(exact response bodies, audit-log call assertions, Prisma call shapes) that
+an HTTP-only script can't check as tightly anyway. Document this scope
+boundary explicitly in the dogfood script's header comment rather than
+silently omitting the authenticated checks.
+
+**Rule going forward:** Before building a new dogfood script, check whether
+the new item's routes are genuinely new URL paths (worth a new script) vs.
+already covered by an existing milestone's dogfood script testing the same
+generic auth-boundary shape against different paths (in which case, don't
+duplicate — note the existing coverage instead). For HUB-42, the warranty
+routes (`/api/warranties/*`, `/api/admin/warranties/*`,
+`/account/warranties/*`, `/admin/warranties/*`) were entirely new paths not
+exercised by any prior dogfood script, so a new one was warranted.
+
+### Heredoc file creation intermittently fails on large single blocks (env-specific)
+
+**Symptom:** Attempting to create `scripts/dogfood-hub42.ts` via a single
+`cat > file << 'EOF' ... EOF` heredoc (and even via a `python3 -c` wrapper
+around the same heredoc) failed with `unexpected EOF while looking for
+matching ''` even though every individual chunk of the content, tested in
+isolation, parsed fine. Root cause not fully isolated (possibly a
+transport/length quirk in this specific Bash tool + Git Bash on Windows
+combination) — retrying the exact same content in ~4 smaller `cat >>` append
+chunks succeeded every time.
+
+**Rule going forward:** If a large multi-line heredoc file write fails with a
+generic quoting error and the content has no actual unmatched quote (verified
+by eye), don't debug the quoting further — just split the write into several
+smaller `cat >>` append calls. This has been a reliable workaround in this
+environment.

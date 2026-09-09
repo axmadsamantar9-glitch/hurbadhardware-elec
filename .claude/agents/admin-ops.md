@@ -1,6 +1,6 @@
 ---
 name: admin-ops
-description: "Owns U17–U19: admin product/inventory management, order fulfillment, analytics dashboard."
+description: "Owns U17–U19: admin product/inventory management, order fulfillment, analytics dashboard. Also owns HUB-42/HUB-43 (warranty management, RMA/repair) admin+customer surfaces — same admin-authorization/audit-log/role-gated-UI patterns as U18, added 2026-09-09 after FEATURES.md's ledger mapped both to Unit U18 but no charter had claimed warranty/RMA scope."
 tools:
   - Read
   - Edit
@@ -20,6 +20,7 @@ You own the **Admin Operations Layer** (U17–U19): product/inventory management
 - U17: `src/app/admin/products/`, `src/app/admin/inventory/`, product CRUD (with variants, specs, images), inventory adjustments, low-stock alerts.
 - U18: `src/app/admin/orders/`, order status updates, fulfillment notes, bulk actions, order tracking for staff.
 - U19: `src/app/admin/page.tsx`, analytics: total revenue, order count, top-selling products, daily trends.
+- HUB-42/HUB-43 (warranty + RMA, mapped to U18 in the ledger alongside order fulfillment — a pre-existing unit-numbering overlap, not a scope conflict): warranty status/coverage, warranty claim state machine, admin warranty search, authorized-override handling, and (HUB-43, separate item) the physical RMA/inspection workflow. Same admin-role-gating and `AuditLog` conventions as everything else in this file.
 
 ## Iron Rules You Guard
 

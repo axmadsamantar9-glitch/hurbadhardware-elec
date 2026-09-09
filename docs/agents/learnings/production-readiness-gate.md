@@ -986,3 +986,28 @@ For the highest-stakes ticket in a session (real money/order-creation logic, ref
 **Coverage reporter display bug independently reconfirmed:** `settle.ts`, `gateway.ts`, `methods.ts`, `cron-auth.ts` are absent from vitest's text-table coverage report despite being genuinely 100% statement-covered -- confirmed directly against `coverage-final.json` (`s` hit-counts), not just trusting the builder/qa-test claim. This is the same reporter quirk qa-test documented; production-readiness-gate should always independently re-derive per-file coverage from the JSON reporter for any file the gate is specifically being asked to vouch for, rather than trusting a prior agent's JSON-derived numbers at face value.
 
 **Distinct status label, not a plain checkmark:** Per explicit instruction, HUB-40 was marked in FEATURES.md with a new status category, "STRUCTURALLY VERIFIED -- LIVE PROVIDER VERIFICATION PENDING CREDENTIALS" (new legend entry, new emoji marker distinct from the plain verified checkmark), because all four payment-adjacent credentials (WaafiPay, eDahab, Paystack, FX provider) are blank in this environment and no live gateway round-trip can be performed here. All 6 machine-checkable gates (build, lint, typecheck, 935/935 tests + coverage, dogfood auth-boundary, security spot-check) are genuinely green; only the live third-party integration is unconfirmed. Rule going forward: when a ticket has an inherent live-credential gap that cannot be closed in this environment, do not force it into either "verified" or "rejected" -- a distinct, explicit intermediate status that is impossible to mistake for full verification is the correct gate outcome, and the FEATURES.md legend must document exactly what that status does and does not mean so it cannot be misread later.
+
+## HUB-42: Warranty Management (2026-09-09)
+
+### /api/admin/* routes redirect (307) instead of returning 401 JSON -- pre-existing middleware pattern, not a per-ticket regression
+
+**Symptom:** `scripts/dogfood-hub42.ts` reported 4/10 failures, all `Expected 401, got 500` for `GET`/`PATCH /api/admin/warranties/claims/[id]`, `GET /api/admin/warranties`, `POST /api/admin/warranties/register`.
+
+**Cause:** `src/proxy.ts`'s auth-gate condition is `pathname.includes("/admin")`, which matches `/api/admin/*` API routes as well as `/[locale]/admin/*` pages. For an unauthenticated request, the middleware issues a `307` redirect to the signin page _before_ the route handler's own `requireAdmin()` check ever runs. This is identical, pre-existing behavior on the already-verified `/api/admin/payments` route (HUB-40) -- confirmed byte-for-byte via manual `curl` (no redirect-following): both return `307` to `/en/auth/signin?callbackUrl=...`. The dogfood script's default `fetch()` follows that redirect; in this session the local dev DB is unreachable, so the signin page itself fails to render and returns `500` -- that 500 is the followed-redirect's failure, not the original API call's status.
+
+**Rule going forward:** When a dogfood script for a NEW `/api/admin/*` route asserts a bare `401`, first check whether `src/proxy.ts`'s `pathname.includes("/admin")` condition intercepts that route ahead of its own auth check -- if so, the correct assertion is a `307` redirect to signin (test with `redirect: "manual"`, same pattern as `assertRedirectsToSignin` already used for page routes in this same script), not a `401`. Do not treat a resulting `500` from following that redirect into a DB-dependent signin-page render as a code defect of the new ticket -- diagnose it against an already-verified sibling admin route first (e.g. `/api/admin/payments`) to confirm it's pre-existing, sitewide behavior before accepting or rejecting the gate on it. This is the same DB-unreachable-local-dev class of finding documented for HUB-39/U5/HUR-51 -- expected, not blocking, once independently confirmed non-regressive.
+
+### Windows dev-server orphan processes stack up across background Bash invocations
+
+**Symptom:** Multiple `npm run dev` background invocations during gate verification left stray `next dev` processes bound to port 3000, causing subsequent spawns to fall back to 3001 and print "Another next dev server is already running," and one orphaned process grew to 900MB+ RSS while stuck handling a slow signin-page render against an unreachable DB.
+
+**Rule going forward:** Before starting any dev server for dogfood/manual verification on this Windows environment, check `tasklist | grep -i node` and `taskkill //PID <pid> //F` any stragglers first. After verification, explicitly kill the dev server process(es) rather than assuming the tool call's process teardown or a script's `finally { dev.kill() }` fully cleans up -- `spawn(shell, ["/c", "npm run dev"])` on Windows spawns a shell wrapping `next dev`, and killing the shell PID does not always kill the underlying Next.js child process.
+
+---
+
+## Summary
+
+**Item:** HUB-42 -- Warranty Management (HUR-196, scope AC1-AC7+AC9, AC8 excluded)
+**Status:** 🟧 VERIFIED (NARROWED SCOPE) -- REMAINDER BLOCKED ON BUSINESS DECISIONS
+**Date:** 2026-09-09
+**Gates:** tsc 0, eslint 0 errors, build green (9 new routes confirmed), 998/998 tests x2 runs no flake, coverage 88.73%/79.43%/90.84%/89.76%, migration additive-only, AC7 override enforcement independently re-verified, AC8 confirmed genuinely not implemented, dogfood 6/10 direct pass + 4/10 diagnosed as pre-existing non-regressive middleware pattern, secrets scan clean.

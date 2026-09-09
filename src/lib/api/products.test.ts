@@ -48,6 +48,7 @@ const mockProduct = {
   isFeatured: false,
   compatibilityWarningEn: null,
   compatibilityWarningSo: null,
+  warrantyMonths: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   images: [{ id: "img1", url: "https://example.com/img1.jpg", position: 0 }],
