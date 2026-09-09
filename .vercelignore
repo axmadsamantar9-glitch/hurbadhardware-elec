@@ -1,0 +1,9 @@
+# Never upload local env files to a Vercel deployment -- Production must
+# only ever use the environment variables configured in the Vercel
+# dashboard. A local .env being included in the deployment bundle caused
+# Next.js to load DATABASE_URL (and everything else) from it instead of
+# Vercel's own Production env vars, breaking the database connection
+# despite the dashboard's DATABASE_URL being correct.
+.env
+.env.local
+.env.*.local
