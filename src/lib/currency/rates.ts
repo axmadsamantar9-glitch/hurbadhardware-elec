@@ -14,8 +14,19 @@ import { StaleRateError } from "@/lib/payments/errors";
 
 /** Hours after which the newest persisted FxRate is considered too old to
  * safely price an order. A named constant, not an env var -- deliberately
- * not independently configurable per HUB-40's design. */
-export const FX_STALE_HOURS = 6;
+ * not independently configurable per HUB-40's design.
+ *
+ * Set to cover the actual fetch cadence: the fx-rates cron (vercel.json)
+ * can only run once per day on Vercel's Hobby plan (higher frequencies are
+ * rejected at deploy time), so this must comfortably exceed 24h or every
+ * KES checkout would fail for most of the day between runs. 26h gives a
+ * 2h buffer past the 24h cycle for cron execution jitter. If the cron
+ * cadence is ever restored to hourly (e.g. via an external scheduler
+ * calling this route instead of Vercel's own cron, or a Pro-plan upgrade),
+ * this should come back down to a tighter window (it was 6h before this
+ * change) -- a stale FX rate priced in USD->KES conversion is a real
+ * money-correctness risk, not just a staleness nicety. */
+export const FX_STALE_HOURS = 26;
 
 export interface FxRateResult {
   rate: Decimal;

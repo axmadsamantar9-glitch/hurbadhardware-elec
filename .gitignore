@@ -44,3 +44,6 @@ next-env.d.ts
 # lighthouse raw reports (large; summarized scores are committed in
 # docs/standards/performance-testing.md instead)
 /reports/lighthouse/**/*.json
+
+.vercel
+.env*

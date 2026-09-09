@@ -7,6 +7,20 @@
  * capped at BATCH_SIZE per run. Each payment gets its own `db.$transaction`
  * wrapped in try/catch so one failure (e.g. a gateway timeout) never aborts
  * the rest of the batch.
+ *
+ * Trigger cadence: this route (src/app/api/cron/reconcile/route.ts) is
+ * invoked once daily by vercel.json's cron entry -- Vercel's Hobby plan
+ * rejects any cron expression that would run more than once per day, so a
+ * continuous every-2-minutes sweep isn't available without a paid plan.
+ * This is a real, accepted degradation, not a bug: a payment whose callback
+ * was dropped (or, for eDahab, never sent at all -- it has no server
+ * callback) now waits up to ~24h for this backstop to catch it and mark it
+ * EXPIRED/COMPLETED/FAILED, instead of within a couple of minutes. It does
+ * NOT affect the primary, real-time paths: a gateway's own webhook callback
+ * still settles a payment instantly, and GET /api/payments/status/[orderId]
+ * calls the adapter's queryStatus() live on every request, independent of
+ * this cron entirely -- a customer checking their own order's status always
+ * gets the true current state, cron cadence notwithstanding.
  */
 
 import type { Payment } from "@prisma/client";
