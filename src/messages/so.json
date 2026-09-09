@@ -192,7 +192,22 @@
       "claimAdvanceButton": "Horumari",
       "overrideReasonLabel": "Sababta maraynta (waajib marka dammaanaddu aanay firfircooneyn)",
       "overrideRequired": "Dammaanaddan hadda ma firfircoona — sabab maraynta ayaa loo baahan yahay si loo horumariyo sheegashada.",
-      "invalidTransition": "Isbeddelka xaaladda lama oggola xaaladda hadda ee sheegashada."
+      "invalidTransition": "Isbeddelka xaaladda lama oggola xaaladda hadda ee sheegashada.",
+      "rmaTitle": "Raadinta RMA",
+      "rmaSearchPlaceholderClaimId": "Aqoonsiga Sheegashada",
+      "rmaSearchPlaceholderOrderId": "Aqoonsiga Dalabka",
+      "rmaNoResults": "Wax RMA ah oo la mid ah raadintaada lama helin.",
+      "rmaCreateTitle": "Samee RMA",
+      "rmaCreateClaimId": "Aqoonsiga Sheegashada",
+      "rmaCreateButton": "Samee RMA",
+      "rmaCreateSuccess": "RMA-ga waa la sameeyay.",
+      "rmaDetailTitle": "Faahfaahinta RMA",
+      "rmaStatus": "Xaaladda",
+      "rmaAdvanceTo": "U horumari",
+      "rmaAdvanceButton": "Horumari",
+      "rmaConditionOnReceiptLabel": "Xaaladda markii la helay",
+      "rmaInspectionNotesLabel": "Fiirooyinka baaritaanka",
+      "rmaInvalidTransition": "Isbeddelka xaaladda lama oggola xaaladda hadda ee RMA-ga."
     }
   },
   "nav": {
@@ -329,6 +344,21 @@
       "statusRefund": "Lacag Celin",
       "statusCompleted": "Waa Dhammaystiran",
       "statusClosed": "Waa Xiran"
+    },
+    "rma": {
+      "title": "Xaaladda Dayactirka / Celinta",
+      "statusRequested": "La Codsaday",
+      "statusReview": "Dib U Eegis",
+      "statusApproved": "La Ansixiyay",
+      "statusRejected": "La Diiday",
+      "statusReceived": "La Helay",
+      "statusInspecting": "Baaritaan",
+      "statusRepair": "Dayactir",
+      "statusReplace": "Bedel",
+      "statusRefund": "Lacag Celin",
+      "statusCompleted": "Waa Dhammaystiran",
+      "conditionOnReceipt": "Xaaladda markii la helay",
+      "inspectionNotes": "Fiirooyinka baaritaanka"
     }
   },
   "errors": {

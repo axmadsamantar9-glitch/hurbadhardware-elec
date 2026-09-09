@@ -1011,3 +1011,29 @@ For the highest-stakes ticket in a session (real money/order-creation logic, ref
 **Status:** 🟧 VERIFIED (NARROWED SCOPE) -- REMAINDER BLOCKED ON BUSINESS DECISIONS
 **Date:** 2026-09-09
 **Gates:** tsc 0, eslint 0 errors, build green (9 new routes confirmed), 998/998 tests x2 runs no flake, coverage 88.73%/79.43%/90.84%/89.76%, migration additive-only, AC7 override enforcement independently re-verified, AC8 confirmed genuinely not implemented, dogfood 6/10 direct pass + 4/10 diagnosed as pre-existing non-regressive middleware pattern, secrets scan clean.
+
+## HUB-43: Repair Management / RMA (2026-09-09)
+
+### All 11 Gates Passed — Item Verified with Plain Checkmark (Not 🟧)
+
+**Verification Date:** 2026-09-09
+**Item:** HUB-43 — Repair Management (RMA), HUR-197 scope AC1-AC7 (AC8 explicitly excluded)
+
+**Gate Results:** tsc 0; eslint 0 errors; next build succeeds with all 4 new routes present; 1060/1060 tests (re-run twice, zero flake); coverage 88.67/78.51/90.12/89.72% (all above 80/70 thresholds); migration additive-only (2 enums, 2 tables, 1 FK, zero DDL on `warranty_claims`); security 0 critical/high/medium; RMA-eligibility check, P2002-to-409 scoping, and condition-field gating all independently re-verified by direct code reading (not taken on the builder's word); no override mechanism found (grep, by design); no notification send call found (grep, AC8 genuinely not built); dogfood 6/6; secrets scan clean.
+
+### Distinguishing plain ✅ from 🟧 "narrowed scope, blocked on business decisions"
+
+**Symptom:** HUB-41 and HUB-42 both used the 🟧 status for narrowed scope. HUB-43 also has excluded ACs (AC8 notifications, no override, no standalone RMA) and it would have been easy to reflexively reuse 🟧 for consistency.
+
+**Cause/distinction:** The STATUS LEGEND's 🟧 definition is specifically "remainder blocked on business decisions" — i.e., a value or policy only a human stakeholder can supply (shipping rates, replacement-warranty policy). HUB-43's exclusions are different in kind: (a) no-override and no-standalone-RMA are architect-made scope decisions, already finalized, not open questions; (b) notifications (AC8) are blocked on a not-yet-built cross-feature dependency (HUB-48's notification infrastructure, which doesn't exist for ANY feature yet), not an unconfirmed business value.
+
+**Rule going forward:** Before applying 🟧, check whether the excluded scope is genuinely awaiting a human business decision (shipping rates, warranty duration, replacement policy) vs. (a) an architect-finalized scope boundary or (b) a dependency on a not-yet-built infrastructure item that has its own ticket. Only the former qualifies for 🟧 per the legend's literal text. Mislabeling architect/infra-sequencing gaps as "blocked on business decisions" would misdirect the orchestrator toward chasing a business-decision conversation that doesn't need to happen. A plain ✅ with a clear, itemized "explicitly out of scope" note in the row is more honest when the gap is architectural or infra-sequencing rather than a business-decision blocker.
+
+**Also confirmed:** the `src/proxy.ts` admin-API-middleware-redirect quirk first surfaced during HUB-42's dogfood run reproduces identically on HUB-43's new `/api/admin/rma*` routes — this is now logged as its own top-level OPEN RISKS item (#10) in `docs/agents/run-state.md`, not just repeated in each affected item's row, since it's a durable, cross-cutting finding affecting every `/api/admin/*` route shipped since HUB-40.
+
+---
+
+**Item:** HUB-43 — Repair Management (RMA)
+**Status:** ✅ VERIFIED (plain checkmark, HUR-197 AC1-AC7; AC8 explicitly and honestly excluded)
+**Date:** 2026-09-09
+**All 11 Production-Readiness Gates:** GREEN

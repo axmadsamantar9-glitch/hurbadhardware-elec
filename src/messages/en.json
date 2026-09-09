@@ -192,7 +192,22 @@
       "claimAdvanceButton": "Advance",
       "overrideReasonLabel": "Override reason (required when warranty is not active)",
       "overrideRequired": "This warranty is not currently active — an override reason is required to advance this claim.",
-      "invalidTransition": "That status change is not allowed from the claim's current status."
+      "invalidTransition": "That status change is not allowed from the claim's current status.",
+      "rmaTitle": "RMA Search",
+      "rmaSearchPlaceholderClaimId": "Claim ID",
+      "rmaSearchPlaceholderOrderId": "Order ID",
+      "rmaNoResults": "No RMAs matched your search.",
+      "rmaCreateTitle": "Create RMA",
+      "rmaCreateClaimId": "Claim ID",
+      "rmaCreateButton": "Create RMA",
+      "rmaCreateSuccess": "RMA created.",
+      "rmaDetailTitle": "RMA Detail",
+      "rmaStatus": "Status",
+      "rmaAdvanceTo": "Advance to",
+      "rmaAdvanceButton": "Advance",
+      "rmaConditionOnReceiptLabel": "Condition on receipt",
+      "rmaInspectionNotesLabel": "Inspection notes",
+      "rmaInvalidTransition": "That status change is not allowed from the RMA's current status."
     }
   },
   "nav": {
@@ -329,6 +344,21 @@
       "statusRefund": "Refund",
       "statusCompleted": "Completed",
       "statusClosed": "Closed"
+    },
+    "rma": {
+      "title": "Repair / Return Status",
+      "statusRequested": "Requested",
+      "statusReview": "Review",
+      "statusApproved": "Approved",
+      "statusRejected": "Rejected",
+      "statusReceived": "Received",
+      "statusInspecting": "Inspecting",
+      "statusRepair": "Repair",
+      "statusReplace": "Replace",
+      "statusRefund": "Refund",
+      "statusCompleted": "Completed",
+      "conditionOnReceipt": "Condition on receipt",
+      "inspectionNotes": "Inspection notes"
     }
   },
   "errors": {

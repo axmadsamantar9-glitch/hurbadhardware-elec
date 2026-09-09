@@ -1031,3 +1031,90 @@ generic quoting error and the content has no actual unmatched quote (verified
 by eye), don't debug the quoting further — just split the write into several
 smaller `cat >>` append calls. This has been a reliable workaround in this
 environment.
+
+---
+
+## HUB-43: Repair Management / RMA (2026-09-09)
+
+### Middleware protected-route check matches API paths, not just page paths -- pre-existing, codebase-wide
+
+**Symptom:** Writing `scripts/dogfood-hub43.ts` to assert "unauthenticated
+POST /api/admin/rma returns 401" (mirroring `dogfood-hub42.ts`'s identical
+assertion for `/api/admin/warranties`) failed against a live dev server --
+the actual response was a 307 redirect to `/en/auth/signin`, not a 401 JSON
+body.
+
+**Cause:** `src/proxy.ts`'s protected-route check is
+`pathname.includes("/account") || pathname.includes("/admin")`. This
+substring match also matches API paths like `/api/admin/rma` and
+`/api/admin/warranties` (not just page paths like `/admin/warranties`). So in
+a real running server, ANY unauthenticated request to `/api/admin/*` is
+intercepted by the edge middleware and 307-redirected to signin (or
+redirected to `/` for an authenticated non-admin) BEFORE the route handler's
+own `requireAdmin()` check ever runs. The route handler's 401/403 JSON
+responses are real, correct code -- they're just unreachable for a plain
+browser `fetch()` (default `redirect: "follow"`), which transparently
+follows the redirect and lands on the signin HTML page instead. Verified this
+is NOT RMA-specific: `/api/admin/warranties` exhibits the exact same 307
+behavior, confirmed manually against a live server -- so this predates
+HUB-43 (present since the U3 middleware) and affects every `/api/admin/*`
+route in the codebase, not something introduced by this HUB.
+
+**Consequence for route-level unit tests:** `route.test.ts` files that call
+`GET`/`POST`/`PATCH` handlers directly (bypassing middleware, as this
+project's convention does -- see the "API Route Testing Complexity" learning
+above) correctly assert 401/403 as the handler's own contract, and that
+remains valid and valuable. But a dogfood script that hits the real HTTP
+server needs `redirect: "manual"` and to assert a redirect-to-signin, not a
+literal 401 -- asserting 401 there will always fail (or silently pass for
+the wrong reason if the test doesn't check status precisely), regardless of
+which HUB introduced the route.
+
+**Rule going forward:** When writing a NEW dogfood script for `/api/admin/*`
+or `/api/account/*` surfaces, use `fetch(url, { redirect: "manual" })` and
+assert a `3xx` + `location` containing `signin` -- do not assert a bare 401,
+even though that's what the route handler's own code returns when called
+directly. Flag (don't silently fix) the underlying middleware substring-match
+behavior to the architect/security-review agent if noticed again -- whether
+`/api/admin/*` JSON APIs should be excluded from the page-redirect branch and
+rely solely on each route's own JSON 401/403 is a deliberate architecture
+decision (e.g. it affects how a legitimate session-expiry scenario surfaces
+to an already-loaded admin page's client-side `fetch()` calls -- it would
+transparently follow the redirect and get an HTML parse error trying to
+`res.json()` the signin page, rather than a clean "please sign in again"),
+not something to patch as a side effect of a QA task.
+
+### Rigor audit confirmed real, not padding (transitions/api/route tests)
+
+`src/lib/rma/transitions.test.ts`, `src/lib/rma/api.test.ts`,
+`src/app/api/admin/rma/route.test.ts`, and
+`src/app/api/admin/rma/[id]/route.test.ts` were all spot-checked against a
+"genuine rigor" bar and passed: terminal states (REJECTED, COMPLETED) are
+explicitly tested with exhaustive negative assertions, not just the happy
+forward chain; skip-ahead transitions are tested; `advanceRmaStatus`'s
+timestamp-setting is tested per-transition with explicit `toBeUndefined()`
+checks on the OTHER timestamp fields (not just "some timestamp got set");
+the condition/inspection-notes gating has both a real rejection test (too
+early) and a real acceptance test (on RECEIVED); the new P2002-race-to-409
+fix has both the positive case (real `Prisma.PrismaClientKnownRequestError`
+with `meta.target: ["claim_id"]`) and a scoping sanity check (P2002 on a
+different constraint still 500s). No padding/trivial assertions found; no
+new unit tests were needed.
+
+### Thin `[locale]` page test coverage is a confirmed, consistent, codebase-wide convention
+
+`src/app/[locale]/account/warranties/[id]/page.tsx` (modified this HUB to add
+a read-only RMA section) has zero test coverage, but so does every other
+`src/app/[locale]/**/*.tsx` page in the entire codebase (confirmed via glob:
+zero `*.test.tsx` files under `src/app/[locale]`). This isn't a
+HUB-43-specific gap -- it's a project-wide, already-accepted pattern where
+page components are thin wrappers around already-unit-tested data-layer
+functions (`getWarrantyDetailForUser`, `getRmaForClaimForUser` here, both
+IDOR-safety-tested at the unit level). Don't flag this as a new gap for a
+single HUB; if it needs to change, it's a project-wide convention change,
+not a per-feature fix.
+
+**Rule going forward:** Before flagging "this page has no test coverage" as
+a gap, glob for `*.test.tsx` across the whole `[locale]` tree first. If the
+answer is uniformly zero, it's a convention, not a regression -- note it and
+move on unless asked to change the convention itself.

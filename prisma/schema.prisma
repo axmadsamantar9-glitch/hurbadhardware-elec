@@ -1020,11 +1020,79 @@ model WarrantyClaim {
   user               User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
   replacementProduct Product?               @relation("WarrantyClaimReplacementProduct", fields: [replacementProductId], references: [id], onDelete: SetNull)
   messages           WarrantyClaimMessage[]
+  rma                RmaRequest?
 
   @@index([warrantyId])
   @@index([userId])
   @@index([status])
   @@map("warranty_claims")
+}
+
+/// Physical repair/replace/refund inspection workflow (HUB-43 AC1). One RMA
+/// per WarrantyClaim (1:1 via the unique `claimId` FK below), created only
+/// once a claim has reached SERVICE_REPAIR/REPLACEMENT/REFUND in HUB-42's
+/// claim state machine (src/lib/warranty/claim-transitions.ts, untouched by
+/// this issue). Money fields (repair cost / refund amount) deliberately live
+/// only on WarrantyClaim -- not duplicated here.
+enum RmaStatus {
+  REQUESTED
+  REVIEW
+  APPROVED
+  REJECTED
+  RECEIVED
+  INSPECTING
+  REPAIR
+  REPLACE
+  REFUND
+  COMPLETED
+
+  @@map("rma_status")
+}
+
+enum ProductCondition {
+  NEW
+  OPEN_BOX
+  REFURBISHED
+  USED
+
+  @@map("product_condition")
+}
+
+model RmaRequest {
+  id      String    @id @default(cuid())
+  claimId String    @unique @map("claim_id")
+  status  RmaStatus @default(REQUESTED)
+
+  conditionOnReceipt ProductCondition? @map("condition_on_receipt")
+  inspectionNotes    String?           @map("inspection_notes")
+
+  requestedAt DateTime  @default(now()) @map("requested_at")
+  receivedAt  DateTime? @map("received_at")
+  inspectedAt DateTime? @map("inspected_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  claim   WarrantyClaim       @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  history RmaStatusHistory[]
+
+  @@index([status])
+  @@map("rma_requests")
+}
+
+/// Append-only status trail (HUB-43 AC5) -- no update/delete function is
+/// exported for this model, mirroring AuditLog's convention.
+model RmaStatusHistory {
+  id        String    @id @default(cuid())
+  rmaId     String    @map("rma_id")
+  status    RmaStatus
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  rma RmaRequest @relation(fields: [rmaId], references: [id], onDelete: Cascade)
+
+  @@index([rmaId, createdAt])
+  @@map("rma_status_history")
 }
 
 /// Customer<->admin communication thread on a claim (PRD §6.9 "Customer

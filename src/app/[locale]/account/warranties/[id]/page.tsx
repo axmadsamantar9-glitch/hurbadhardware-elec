@@ -3,9 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { getWarrantyDetailForUser } from "@/lib/api/warranties";
+import { getRmaForClaimForUser } from "@/lib/rma/api";
 import { validateCallbackUrl } from "@/lib/validate-callback-url";
 import { locales, defaultLocale, type Locale } from "@/i18n";
 import type { WarrantyStatusResult } from "@/lib/warranty/status";
+import type { RmaStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,44 @@ export default async function WarrantyDetailPage({ params }: WarrantyDetailPageP
   if (!warranty) {
     notFound();
   }
+
+  // AC7: read-only RMA surface. Most claims never reach RMA eligibility, so
+  // this fetches an RMA per claim and only renders a claim's RMA block when
+  // one exists. Ownership-scoped via getRmaForClaimForUser (IDOR-safe,
+  // returns null rather than leaking existence for another user's claim).
+  const claimRmas = await Promise.all(
+    warranty.claims.map(async (claim) => ({
+      claim,
+      rma: await getRmaForClaimForUser(session.user.id, claim.id),
+    }))
+  );
+
+  const rmaStatusLabel = (rmaStatus: RmaStatus): string => {
+    switch (rmaStatus) {
+      case "REQUESTED":
+        return t("warranty.rma.statusRequested");
+      case "REVIEW":
+        return t("warranty.rma.statusReview");
+      case "APPROVED":
+        return t("warranty.rma.statusApproved");
+      case "REJECTED":
+        return t("warranty.rma.statusRejected");
+      case "RECEIVED":
+        return t("warranty.rma.statusReceived");
+      case "INSPECTING":
+        return t("warranty.rma.statusInspecting");
+      case "REPAIR":
+        return t("warranty.rma.statusRepair");
+      case "REPLACE":
+        return t("warranty.rma.statusReplace");
+      case "REFUND":
+        return t("warranty.rma.statusRefund");
+      case "COMPLETED":
+        return t("warranty.rma.statusCompleted");
+      default:
+        return rmaStatus;
+    }
+  };
 
   const dateFormatter = new Intl.DateTimeFormat(locale === "so" ? "so" : "en", {
     dateStyle: "medium",
@@ -134,6 +174,48 @@ export default async function WarrantyDetailPage({ params }: WarrantyDetailPageP
               {t("warranty.fileClaim")}
             </Link>
           </div>
+
+          {claimRmas.length > 0 && (
+            <div className="rounded-lg border border-zinc-200 bg-white p-6 space-y-4">
+              {claimRmas.map(({ claim, rma }) => (
+                <div
+                  key={claim.id}
+                  className="space-y-2 border-b border-zinc-100 pb-4 last:border-0 last:pb-0"
+                >
+                  <p className="text-sm text-zinc-900">
+                    <span className="font-medium">{claim.claimReason}</span> — {claim.status}
+                  </p>
+                  <p className="text-xs text-zinc-500">{dateFormatter.format(claim.createdAt)}</p>
+
+                  {rma && (
+                    <div className="mt-2 rounded-md bg-zinc-50 p-4 space-y-2">
+                      <h3 className="font-semibold text-zinc-900">{t("warranty.rma.title")}</h3>
+                      <p className="text-sm text-zinc-700">{rmaStatusLabel(rma.status)}</p>
+                      {rma.conditionOnReceipt && (
+                        <p className="text-sm text-zinc-600">
+                          {t("warranty.rma.conditionOnReceipt")}: {rma.conditionOnReceipt}
+                        </p>
+                      )}
+                      {rma.inspectionNotes && (
+                        <p className="text-sm text-zinc-600">
+                          {t("warranty.rma.inspectionNotes")}: {rma.inspectionNotes}
+                        </p>
+                      )}
+                      {rma.history.length > 0 && (
+                        <ul className="mt-2 space-y-1 text-xs text-zinc-500">
+                          {rma.history.map((h) => (
+                            <li key={h.id}>
+                              {rmaStatusLabel(h.status)} — {dateFormatter.format(h.createdAt)}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
     </div>

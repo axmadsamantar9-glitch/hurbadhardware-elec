@@ -62,6 +62,38 @@ inline with the reasoning. If a future PRD revision clarifies this
 differently, update both the transitions table and its test file's
 `validPairs`/negative-case list together.
 
+## Windows paths ending in a trailing backslash before a closing quote break this Bash tool's parser -- use forward slashes
+
+Discovered while building HUB-43 (RMA): any Bash command whose double-quoted
+path argument ends in `...\"` (a directory path with a trailing backslash
+immediately before the closing quote, e.g. `"D:\...\rma\"`) causes the shell
+to interpret `\"` as an escaped quote rather than a path separator + string
+terminator, leaving the string unterminated -- every subsequent Bash call in
+that session then fails with a cryptic `unexpected EOF while looking for
+matching` error, even for totally unrelated trivial commands, because the
+parser state carries over. The bug isn't specific to heredocs: it triggers
+on any trailing-backslash-then-quote sequence. Fix: always use forward
+slashes for Windows paths passed to the Bash tool (`D:/AI Project/...`
+instead of `D:\AI Project\...`); Windows/Node/git-bash all accept forward
+slashes natively, so there's no downside. If a command mysteriously fails
+with an "unexpected EOF" bash syntax error that has nothing to do with your
+actual command content, suspect a trailing-backslash path first before
+assuming it's a heredoc-quoting/content problem -- it cost significant time
+misdiagnosing this as a content-encoding issue in a large heredoc before the
+real cause (a completely unrelated later `ls "...\"` command in the same
+investigation) was found via a minimal repro.
+
+## For large multi-line new files, prefer the Edit tool (empty old_string on a pre-touched empty file) over Bash heredoc/python-heredoc
+
+Once a heredoc-based `cat > file << 'EOF' ... EOF` write mysteriously fails
+(see the trailing-backslash finding above, or any other shell-quoting
+edge case), the fastest reliable recovery is: `printf '' > path` (or
+otherwise touch the file to exist), `Read` it once (required before any
+`Edit`), then `Edit` with `old_string: ""` and the full file body as
+`new_string`. This sidesteps all shell quoting/escaping entirely since the
+content goes through the tool's own parameter channel, not through a shell
+command string.
+
 ## AC7 "approve/advance" override requirement -- resolved as "any transition except REJECTED/CLOSED"
 
 The architect's spec for AC7 says an override reason is required when the
@@ -75,3 +107,25 @@ gated behind a justification. If a future revision wants overrides to also
 gate rejections (e.g. "you can't even record a decision without justifying
 why you're looking at this expired warranty at all"), that's a one-line
 change to the `NON_APPROVAL_TRANSITIONS` array plus its dedicated test case.
+
+## HUB-43 (RMA): reused HUB-42's exact code shape but deliberately dropped the override concept
+
+`src/lib/rma/transitions.ts` / `src/lib/rma/api.ts` mirror
+`src/lib/warranty/claim-transitions.ts` / the claim PATCH route's shape
+(adjacency-map state machine, `RmaError` with a `code` for HTTP-status
+mapping, append-only history table, audit log in the same tx) but the
+architect determined no override mechanism is needed for RMA -- physical
+inspection status has no "warranty expired but we'll allow it anyway"
+analog the way claim approval does. Do not add one speculatively; if a
+future issue needs it, it should come with its own explicit design
+decision, not a copy-paste of HUB-42's `writeOverrideAuditLog` path.
+
+`RmaRequest` is a strict 1:1 child of `WarrantyClaim` via a unique
+`claim_id` FK (not a standalone entity) -- created only via
+`createRmaForClaim`, which validates the claim's _current_ status is one of
+`SERVICE_REPAIR`/`REPLACEMENT`/`REFUND` (HUB-42's claim-state-machine
+terminal-ish branch statuses) before allowing creation, and proactively
+checks for an existing RMA before hitting the DB's unique-constraint path
+(cleaner error message, same end result). No money fields were duplicated
+onto `RmaRequest` -- `repairCostUsd`/`refundAmountUsd` stay solely on
+`WarrantyClaim`, exactly as scoped.
