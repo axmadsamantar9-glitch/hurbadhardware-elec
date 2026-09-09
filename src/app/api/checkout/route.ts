@@ -117,6 +117,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         subtotalUsd: result.subtotalUsd,
         discountUsd: result.discountUsd,
         taxUsd: result.taxUsd,
+        shippingUsd: result.shippingUsd,
         totalUsd: result.totalUsd,
         chargeCurrency: result.chargeCurrency,
         chargeAmount: result.chargeAmount,

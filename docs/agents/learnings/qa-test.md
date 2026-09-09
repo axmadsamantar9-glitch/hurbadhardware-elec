@@ -792,3 +792,129 @@ Per-file coverage for new/audited HUB-40 files (via `coverage-final.json`, not t
 4. `scripts/dogfood-hub40.ts` — auth/validation-boundary dogfood entrypoint (9 checks), same pattern as `scripts/dogfood-hub39.ts`
 
 Total: 924 -> 935 tests, all passing, 91 test files, no application code modified (no bugs found).
+
+---
+
+## HUB-41: Shipping Management ($0 stub + wiring) Audit (2026-09-09)
+
+### $0-Returning-Stub Fields Can Make "Formula Wiring" Assertions Vacuous
+
+**Symptom:** `src/lib/api/checkout.test.ts` asserted `shippingUsd: 0` and a
+`totalUsd` that happened to equal `subtotalUsd` (since shipping/tax are both
+real `$0` stubs, per product-planning's pending-business-decision pattern
+established for `tax.ts` and now `shipping.ts`). This _looks_ like it proves
+`totalUsd` correctly includes `shippingUsd` in its formula, but it can't: `0`
+is the additive identity, so a bug that silently dropped `shippingUsd` from
+`subtotalUsd - discountUsd + taxUsd + shippingUsd` entirely (or from the
+route's response-serialization block) would produce byte-identical output to
+the correct code, and every existing assertion would still pass.
+
+**Cause:** `calculateShipping()` (like `calculateTax()`) is a genuine `$0`
+business-decision-pending stub by design (see its docstring) — that's correct
+production behavior, not a test bug. But `checkout.test.ts` never mocked the
+`@/lib/storefront/shipping` module, so the test suite had no way to inject a
+non-zero shipping figure and therefore no way to distinguish "correctly wired
+but currently 0" from "silently dropped from the formula."
+
+**Fix implemented:** Added `vi.mock("@/lib/storefront/shipping", ...)` to
+`checkout.test.ts` (default mock returns `0`, matching real behavior, so
+every pre-existing test is unaffected) plus one new test that overrides the
+mock to `7.5` and asserts `totalUsd`/`chargeAmount`/`Payment.amountUsd` all
+reflect it (`27.5`, not `20`). Verified red/green by hand: temporarily
+removing `+ shippingUsd` from the `totalUsd` formula in `checkout.ts` made
+the new test fail with a clear expected-27.5-got-20 diff; reverted
+immediately, confirmed green again. Also strengthened
+`src/app/api/checkout/route.test.ts`'s existing "places an order" test to use
+a non-zero mocked `shippingUsd` (`4.25`) from `placeOrder` and assert the
+route's JSON response actually carries it — red-checked by temporarily
+deleting the `shippingUsd: result.shippingUsd,` line from the route's
+response object (test failed, missing key), then reverted.
+
+**Rule going forward:** When a field's real production value is currently a
+constant (especially `0`, the additive identity, or `""`/`[]`, other
+identities), any test that only exercises the real default cannot prove the
+field is load-bearing in downstream arithmetic/serialization. Mock the
+source function to a non-default value in at least one test case so a
+"dropped from the formula" or "dropped from the response" class of bug is
+actually catchable. This applies directly to `tax.ts` too (same `$0` stub
+pattern, same vacuous-test risk in `checkout.test.ts` if it's ever touched
+again without this in mind) — not fixed in this pass since it's out of
+HUB-41's scope, but flagged here for the next agent that touches tax.
+
+### i18n Parity Test Verified as Genuinely Effective (Not Just Trusted)
+
+**Symptom:** Needed to confirm `src/messages.test.ts`'s "has exact 1:1 key
+parity between en.json and so.json" test would actually catch a
+one-sided-only key (e.g. if `checkout.shipping` had only been added to
+`en.json`), not just assumed to work because it passed.
+
+**Verification method:** Temporarily deleted the `"shipping": "Shipping"`
+line from `src/messages/en.json` and reran `messages.test.ts` — it failed
+with a precise diff showing `checkout.shipping` present on one side and
+absent on the other (via `flattenKeys(...).sort()` + `toEqual`, which does a
+full deep-equal on the two sorted key arrays, not a subset/superset check).
+Reverted immediately. Confirmed both `en.json` and `so.json` genuinely
+contain `checkout.shipping` in the committed HUB-41 diff.
+
+**Rule going forward:** Don't just read a parity/invariant test's code and
+reason "this should catch X" — for anything security- or correctness-
+critical, actually break the invariant locally, watch the test fail with the
+right diff, then revert. Static reading can miss subtle test bugs (e.g. a
+parity check that only compares top-level keys, or a `toMatchObject` that
+silently ignores extra/missing keys instead of `toEqual`).
+
+### $0 Stub Unit Tests: Full Input-Space Coverage Is the Right Bar
+
+**What worked well:** `src/lib/storefront/shipping.test.ts` (mirroring the
+existing `tax.test.ts` pattern) asserts `calculateShipping()` returns exactly
+`0` across typical/zero/large/negative subtotal inputs — this is genuinely
+rigorous for a stub whose entire contract is "always 0, on purpose, until a
+business decision lands." No changes needed here.
+
+### Checkout Page UI Test Gap Is Pre-Existing and Sitewide, Not HUB-41-Specific
+
+**Finding:** `src/app/[locale]/checkout/page.tsx` renders a new Shipping
+line item (`$0.00`, hardcoded client-side exactly like the existing Tax line
+— both mirror their respective server-side `$0` stubs, not independently
+duplicated business logic). Searched for any `.test.tsx` file anywhere under
+`src/app/` — none exist, for any page, in this entire codebase. This is a
+pre-existing, sitewide gap in page-component test coverage (confirmed via
+the established pattern: unit-test extracted logic, defer framework/DOM
+rendering to E2E/dogfood, per the U5/HUR-51 learnings above) — not something
+introduced or worsened by HUB-41. Per task scope, noted rather than fixed;
+flag for whichever agent eventually stands up component/E2E rendering tests
+for the checkout page as a whole.
+
+**Rule going forward:** When auditing a single ticket's diff, don't invent
+new test-infrastructure scope (e.g. "let's add the first-ever `.test.tsx`
+file") to cover a UI line item in isolation — note the gap in the report so
+it's visible to whoever owns closing it, and let a dedicated
+component/E2E-testing pass handle it holistically instead of one-off per
+ticket.
+
+### HUB-41 Coverage Metrics (Final, Project-Wide)
+
+| Metric     | Value  | Target | Status  |
+| ---------- | ------ | ------ | ------- |
+| Statements | 91.58% | 80%    | ✅ PASS |
+| Branches   | 83.34% | 70%    | ✅ PASS |
+| Functions  | 92.57% | 80%    | ✅ PASS |
+| Lines      | 92.82% | 80%    | ✅ PASS |
+
+### Test Files Modified This Session
+
+1. `src/lib/api/checkout.test.ts` — mocked `@/lib/storefront/shipping`
+   (default `0`, matching real behavior); added 1 new test proving the
+   `totalUsd`/`chargeAmount`/`Payment.amountUsd` formula genuinely sums a
+   non-zero `shippingUsd` (red/green-verified against a hand-introduced bug).
+2. `src/app/api/checkout/route.test.ts` — strengthened the existing "places
+   an order" test to use a non-zero mocked `shippingUsd` and assert it
+   round-trips into the response JSON (red/green-verified).
+
+No new test files created (`shipping.test.ts` and `shipping.ts` were already
+present from the prior implementation pass, both audited and confirmed
+rigorous as-is). No application code modified — `shipping.ts`, `checkout.ts`,
+`route.ts`, and `page.tsx` were only touched transiently for red/green
+verification and reverted every time, confirmed via `git diff` matching the
+pre-existing uncommitted HUB-41 diff exactly. No bugs found in application
+code. Total: 938 -> 939 tests, all passing, 92 test files.

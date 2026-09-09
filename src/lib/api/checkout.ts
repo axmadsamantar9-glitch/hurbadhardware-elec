@@ -35,6 +35,7 @@ import { db } from "@/lib/db";
 import { applyStockDelta } from "@/lib/inventory";
 import { evaluateCoupon, redeemCoupon, CouponRedemptionRaceError } from "@/lib/storefront/coupon";
 import { calculateTax } from "@/lib/storefront/tax";
+import { calculateShipping } from "@/lib/storefront/shipping";
 import { roundMoney } from "@/lib/storefront/cart";
 import { getAllowedPaymentMethods, getGatewayForMethod } from "@/lib/payments/methods";
 import { convert } from "@/lib/currency/convert";
@@ -63,6 +64,7 @@ export type PlaceOrderResult =
       subtotalUsd: number;
       discountUsd: number;
       taxUsd: number;
+      shippingUsd: number;
       totalUsd: number;
       chargeCurrency: "USD" | "KES";
       chargeAmount: number;
@@ -226,7 +228,8 @@ export async function placeOrder(
       }
 
       const taxUsd = calculateTax(subtotalUsd);
-      const totalUsd = roundMoney(subtotalUsd - discountUsd + taxUsd);
+      const shippingUsd = calculateShipping(subtotalUsd);
+      const totalUsd = roundMoney(subtotalUsd - discountUsd + taxUsd + shippingUsd);
 
       // Resolve gateway/chargeCurrency from the single method->gateway map
       // (src/lib/payments/methods.ts), then convert if the resolved gateway
@@ -244,6 +247,7 @@ export async function placeOrder(
           subtotalUsd,
           discountUsd,
           taxUsd,
+          shippingUsd,
           totalUsd,
           chargeCurrency: conversion.chargeCurrency,
           chargeAmount: conversion.chargeAmount,
@@ -312,6 +316,7 @@ export async function placeOrder(
         subtotalUsd,
         discountUsd,
         taxUsd,
+        shippingUsd,
         totalUsd,
         chargeCurrency: conversion.chargeCurrency,
         chargeAmount: conversion.chargeAmount.toNumber(),
@@ -325,6 +330,7 @@ export async function placeOrder(
       subtotalUsd: orderResult.subtotalUsd,
       discountUsd: orderResult.discountUsd,
       taxUsd: orderResult.taxUsd,
+      shippingUsd: orderResult.shippingUsd,
       totalUsd: orderResult.totalUsd,
       chargeCurrency: orderResult.chargeCurrency,
       chargeAmount: orderResult.chargeAmount,

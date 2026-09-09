@@ -207,7 +207,8 @@ export default function CheckoutPage() {
 
   const discountUsd = 0; // No coupon UI wired on this page yet beyond the pass-through field above.
   const taxUsd = 0; // src/lib/storefront/tax.ts::calculateTax() is a $0 extension point pending a business decision.
-  const totalUsd = Math.max(0, cart.subtotalUsd - discountUsd + taxUsd);
+  const shippingUsd = 0; // src/lib/storefront/shipping.ts::calculateShipping() is a $0 extension point pending a business decision.
+  const totalUsd = Math.max(0, cart.subtotalUsd - discountUsd + taxUsd + shippingUsd);
 
   const steps: Step[] = ["address", "review", "payment", "summary"];
   const stepLabel: Record<Step, string> = {
@@ -447,6 +448,10 @@ export default function CheckoutPage() {
                   <dt className="text-zinc-600">{t("checkout.tax")}</dt>
                   <dd>${taxUsd.toFixed(2)}</dd>
                 </div>
+                <div className="flex justify-between">
+                  <dt className="text-zinc-600">{t("checkout.shipping")}</dt>
+                  <dd>${shippingUsd.toFixed(2)}</dd>
+                </div>
                 <div className="flex justify-between text-base font-semibold">
                   <dt>{t("cart.total")}</dt>
                   <dd>${totalUsd.toFixed(2)}</dd>
@@ -505,6 +510,10 @@ export default function CheckoutPage() {
                 <div className="flex justify-between">
                   <dt className="text-zinc-600">{t("checkout.tax")}</dt>
                   <dd>${taxUsd.toFixed(2)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-zinc-600">{t("checkout.shipping")}</dt>
+                  <dd>${shippingUsd.toFixed(2)}</dd>
                 </div>
                 <div className="flex justify-between text-base font-semibold">
                   <dt>{t("cart.total")}</dt>

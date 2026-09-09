@@ -618,6 +618,7 @@ model Order {
   subtotalUsd Decimal @map("subtotal_usd") @db.Decimal(10, 2)
   discountUsd Decimal @default(0) @map("discount_usd") @db.Decimal(10, 2)
   taxUsd      Decimal @default(0) @map("tax_usd") @db.Decimal(10, 2)
+  shippingUsd Decimal @default(0) @map("shipping_usd") @db.Decimal(10, 2)
   totalUsd    Decimal @map("total_usd") @db.Decimal(10, 2)
 
   /// Currency the customer is actually charged in, and the amount in that

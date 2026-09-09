@@ -64,9 +64,15 @@ describe("/api/checkout (HUR-191)", () => {
       subtotalUsd: 20,
       discountUsd: 0,
       taxUsd: 0,
-      totalUsd: 20,
+      // Non-zero on purpose: with a real $0 shippingUsd, a route handler
+      // that forgot to serialize the field at all would still pass a
+      // `toMatchObject`/`toBe(0)` check (missing key vs 0 both look falsy
+      // in casual assertions). A non-zero value here forces the response
+      // JSON to actually carry the field through.
+      shippingUsd: 4.25,
+      totalUsd: 24.25,
       chargeCurrency: "USD",
-      chargeAmount: 20,
+      chargeAmount: 24.25,
       fxRate: null,
     });
 
@@ -84,7 +90,8 @@ describe("/api/checkout (HUR-191)", () => {
     expect(json).toMatchObject({
       ok: true,
       orderId: "order1",
-      totalUsd: 20,
+      shippingUsd: 4.25,
+      totalUsd: 24.25,
       chargeCurrency: "USD",
     });
     // Only the session-derived id and the Zod-validated field set (addressId,
@@ -160,6 +167,7 @@ describe("/api/checkout (HUR-191)", () => {
         subtotalUsd: 20,
         discountUsd: 0,
         taxUsd: 0,
+        shippingUsd: 0,
         totalUsd: 20,
         chargeCurrency: "USD",
         chargeAmount: 20,

@@ -5,6 +5,7 @@ import { applyStockDelta } from "@/lib/inventory";
 import { redeemCoupon, CouponRedemptionRaceError } from "@/lib/storefront/coupon";
 import { convert } from "@/lib/currency/convert";
 import { StaleRateError } from "@/lib/payments/errors";
+import { calculateShipping } from "@/lib/storefront/shipping";
 
 const mockExecuteRaw = vi.fn();
 const mockCartItemFindMany = vi.fn();
@@ -79,6 +80,16 @@ vi.mock("@/lib/storefront/coupon", async () => {
   };
 });
 
+// calculateShipping is mocked so this suite can prove the order-total
+// formula genuinely *sums* shippingUsd in (not just passes it through as an
+// always-0 field, which the real HUB-41 stub happens to return today and
+// would make a "shipping silently dropped from the total" bug invisible).
+// Default mirrors the real stub (0) so every other test in this file is
+// unaffected; the dedicated non-zero test below overrides it per-case.
+vi.mock("@/lib/storefront/shipping", () => ({
+  calculateShipping: vi.fn(),
+}));
+
 function decimal(value: number) {
   return { toNumber: () => value };
 }
@@ -111,6 +122,7 @@ beforeEach(() => {
   mockCartItemDeleteMany.mockResolvedValue({ count: 1 });
   mockPaymentCreate.mockResolvedValue({ id: "pay1" });
   vi.mocked(convert).mockImplementation(defaultConvertImpl as never);
+  vi.mocked(calculateShipping).mockReturnValue(0);
 });
 
 describe("placeOrder", () => {
@@ -305,6 +317,7 @@ describe("placeOrder", () => {
       subtotalUsd: 20,
       discountUsd: 0,
       taxUsd: 0,
+      shippingUsd: 0,
       totalUsd: 20,
       chargeCurrency: "USD",
       chargeAmount: 20,
@@ -369,6 +382,43 @@ describe("placeOrder", () => {
     });
   });
 
+  it("sums a non-zero shippingUsd into totalUsd/chargeAmount/Payment.amountUsd (proves the formula, not just field presence)", async () => {
+    // If calculateShipping were dropped from the totalUsd/order-create/
+    // payment-create formula, this would still assert shippingUsd: 7.5 came
+    // back from the stub call but totalUsd would wrongly stay 20 instead of
+    // 27.5 -- so this case, unlike the real $0 stub, actually fails on that
+    // class of bug.
+    vi.mocked(calculateShipping).mockReturnValue(7.5);
+    vi.mocked(db.cart.findFirst).mockResolvedValue({ id: "cart1" } as never);
+    mockCartItemFindMany.mockResolvedValue([
+      { id: "ci1", productId: "p1", variantId: null, quantity: 2 },
+    ]);
+    mockProductFindMany.mockResolvedValue([PRODUCT]);
+
+    const result = await placeOrder("user-1", BASE_INPUT);
+
+    expect(result).toEqual({
+      ok: true,
+      orderId: "order1",
+      subtotalUsd: 20,
+      discountUsd: 0,
+      taxUsd: 0,
+      shippingUsd: 7.5,
+      totalUsd: 27.5,
+      chargeCurrency: "USD",
+      chargeAmount: 27.5,
+      fxRate: null,
+    });
+
+    expect(mockOrderCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ shippingUsd: 7.5, totalUsd: 27.5 }),
+    });
+
+    expect(mockPaymentCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ amountUsd: 27.5 }),
+    });
+  });
+
   it("never trusts a client-supplied price -- unitPriceUsd always comes from the tx-fresh product read", async () => {
     vi.mocked(db.cart.findFirst).mockResolvedValue({ id: "cart1" } as never);
     mockCartItemFindMany.mockResolvedValue([
@@ -408,6 +458,7 @@ describe("placeOrder", () => {
       subtotalUsd: 20,
       discountUsd: 5,
       taxUsd: 0,
+      shippingUsd: 0,
       totalUsd: 15,
       chargeCurrency: "USD",
       chargeAmount: 15,

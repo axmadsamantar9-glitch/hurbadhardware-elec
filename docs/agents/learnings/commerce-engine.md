@@ -164,6 +164,29 @@ accidentally reintroduce a race or a client-trusted price/tax figure.
   stock is exactly 0 — mirrors the `src/lib/inventory.live.test.ts` (HUB-29)
   precedent one layer up the stack. Skips itself when `DATABASE_URL` isn't
   set, so it never breaks a sandboxed `npm test` run.
+
+## HUB-41: `prisma migrate dev --create-only` can bundle unrelated drift into your migration -- always inspect and trim the generated SQL
+
+**Symptom:** Adding a single trivial `Order.shippingUsd Decimal @default(0)` column and
+running `npx prisma migrate dev --create-only --name add_order_shipping_usd` produced a
+migration with THREE statements: a `DROP INDEX "products_search_vector_idx"`, the intended
+`ALTER TABLE "orders" ADD COLUMN "shipping_usd" ...`, and an `ALTER TABLE "products" ALTER
+COLUMN "search_vector" DROP DEFAULT`.
+
+**Cause:** `products.search_vector` is a generated/trigger-managed tsvector column created via
+raw SQL in `prisma/manual-sql/001_search_vector.sql` (outside Prisma's migration history), so
+Prisma's schema-diff engine perpetually sees it as "drift" vs. the live DB and tries to fold a
+fix into the next unrelated migration it generates. This is pre-existing, unrelated to
+whatever change you're actually making.
+
+**Rule going forward:** After every `prisma migrate dev --create-only`, open the generated
+`migration.sql` and diff it mentally against just the schema.prisma edit you made. If it
+contains statements touching tables/columns you didn't touch (most likely `products.search_vector`
+in this repo), manually edit the migration file down to only the intended statement(s) before
+running `migrate deploy`. Do not "fix" the search_vector drift as a drive-by -- that's a
+separate, out-of-scope concern; just keep your migration minimal and additive, matching Iron
+Rule discipline of touching only what the ticket scopes.
+
 - **Bash-tool heredoc gotcha:** writing a large (~250+ line) TypeScript file
   containing `` tx.$executeRaw`...${x}...` `` template literals via a Bash
   `cat > file << 'EOF'` heredoc intermittently failed with a shell quote-
